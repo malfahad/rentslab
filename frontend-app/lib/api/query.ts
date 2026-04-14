@@ -1,6 +1,6 @@
 /** Build `?a=1&b=2` (no leading `?` in path — pass `path + '?' + buildQuery(...)` or embed). */
 export function buildQuery(
-  params: Record<string, string | number | undefined>,
+  params: Record<string, string | number | boolean | undefined>,
 ): string {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {

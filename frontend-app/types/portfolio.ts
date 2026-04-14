@@ -42,6 +42,10 @@ export type BuildingDto = {
 export type UnitDto = {
   id: number;
   building: number;
+  /** Present on list/detail when API includes building (search & onboarding). */
+  building_name?: string;
+  /** True when an active lease exists for this unit (list/detail from API). */
+  has_active_lease?: boolean;
   unit_number: string;
   floor: string;
   entrance: string;

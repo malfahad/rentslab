@@ -44,6 +44,10 @@ INSTALLED_APPS = [
     'credit_note',
     'payment',
     'payment_allocation',
+    'vendor',
+    'expense_category',
+    'job_order',
+    'expense',
 ]
 
 MIDDLEWARE = [

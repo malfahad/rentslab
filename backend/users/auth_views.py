@@ -23,6 +23,8 @@ from .auth_serializers import (
     RegisterSerializer,
     ResetPasswordSerializer,
 )
+from org.models import Org
+
 from .models import User
 from .serializers import UserSerializer
 from .tokens import account_activation_token
@@ -153,6 +155,24 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class MeOrgsView(APIView):
+    """Organizations the current user belongs to (via UserRole). No X-Org-ID header required."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = (
+            Org.objects.filter(user_roles__user=request.user)
+            .distinct()
+            .order_by('id')
+        )
+        return Response(
+            list(
+                qs.values('id', 'name', 'org_type', 'created_at', 'updated_at'),
+            ),
+        )
 
 
 class DeleteAccountView(APIView):

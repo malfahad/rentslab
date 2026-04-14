@@ -5,6 +5,13 @@ const REFRESH = "rentslab_refresh";
 const USER = "rentslab_user";
 const ORG_ID = "rentslab_org_id";
 
+export const SESSION_CHANGED_EVENT = "rentslab:session-changed";
+
+function dispatchSessionChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+}
+
 export function setSession(
   access: string,
   refresh: string,
@@ -14,6 +21,7 @@ export function setSession(
   localStorage.setItem(ACCESS, access);
   localStorage.setItem(REFRESH, refresh);
   localStorage.setItem(USER, JSON.stringify(user));
+  dispatchSessionChanged();
 }
 
 export function clearSession(): void {
@@ -22,6 +30,18 @@ export function clearSession(): void {
   localStorage.removeItem(REFRESH);
   localStorage.removeItem(USER);
   localStorage.removeItem(ORG_ID);
+  dispatchSessionChanged();
+}
+
+/**
+ * Clears the session and sends the user to sign-in. Use when a private (org-scoped)
+ * API call cannot send `X-Org-ID` or when the server rejects the session (401).
+ */
+export function signOutAndRedirectToLogin(reason: string): void {
+  if (typeof window === "undefined") return;
+  clearSession();
+  const qs = new URLSearchParams({ reason });
+  window.location.assign(`/login?${qs.toString()}`);
 }
 
 export function getStoredOrgId(): number | null {

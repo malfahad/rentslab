@@ -150,6 +150,7 @@ def user_filtered_results(user, org_id: int, queryset, *, kind: str):
 
     ``kind`` identifies how the queryset relates to those scopes:
     ``building``, ``unit``, ``lease``, ``tenant``, ``landlord``, ``service``,
+    ``vendor``, ``expense_category``, ``job_order``, ``expense``,
     ``invoice``, ``invoice_line_item``, ``credit_note``, ``payment``,
     ``payment_allocation``, ``service_subscription``.
     """
@@ -181,8 +182,29 @@ def user_filtered_results(user, org_id: int, queryset, *, kind: str):
             return queryset.none()
         return queryset.filter(pk__in=tids)
 
-    if kind in ('landlord', 'service'):
+    if kind in ('landlord', 'service', 'vendor', 'expense_category'):
         return queryset.none()
+
+    if kind == 'job_order':
+        bids = state['building_ids']
+        uids = state['unit_ids']
+        if not bids and not uids:
+            return queryset.none()
+        return queryset.filter(Q(building_id__in=bids) | Q(unit_id__in=uids))
+
+    if kind == 'expense':
+        el = _expanded_lease_ids(state)
+        bids = state['building_ids']
+        uids = state['unit_ids']
+        if not el and not bids and not uids:
+            return queryset.none()
+        return queryset.filter(
+            Q(lease_id__in=el)
+            | Q(building_id__in=bids)
+            | Q(unit_id__in=uids)
+            | Q(job_order__building_id__in=bids)
+            | Q(job_order__unit_id__in=uids)
+        )
 
     if kind == 'invoice':
         el = _expanded_lease_ids(state)

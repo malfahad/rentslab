@@ -16,7 +16,17 @@ class Lease(models.Model):
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
     rent_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    rent_currency = models.CharField(
+        max_length=3,
+        blank=True,
+        help_text='ISO 4217 code (e.g. USD, KES).',
+    )
     deposit_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    deposit_currency = models.CharField(
+        max_length=3,
+        blank=True,
+        help_text='ISO 4217 code for deposit; may match rent_currency.',
+    )
     billing_cycle = models.CharField(max_length=32, default='monthly')
     status = models.CharField(max_length=32, default='active')
     billing_same_as_tenant_address = models.BooleanField(default=True)
@@ -37,4 +47,11 @@ class Lease(models.Model):
             models.Index(fields=['tenant'], name='lease_tenant_idx'),
             models.Index(fields=['managed_by'], name='lease_managed_by_idx'),
             models.Index(fields=['status', 'end_date'], name='lease_status_end_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['unit'],
+                condition=models.Q(status='active'),
+                name='uniq_active_lease_per_unit',
+            ),
         ]

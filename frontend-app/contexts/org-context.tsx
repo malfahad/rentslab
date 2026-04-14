@@ -10,11 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import {
+  SESSION_CHANGED_EVENT,
   clearStoredOrgId,
+  getAccessToken,
   getStoredOrgId,
   setStoredOrgId,
 } from "@/lib/auth-storage";
-import { getOrg, listOrgs } from "@/services/org-service";
+import { getOrg, listMyOrgs } from "@/services/org-service";
 
 type OrgContextValue = {
   orgId: number | null;
@@ -54,56 +56,78 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const bootstrap = useCallback(async () => {
+    const envId = readEnvDefaultOrgId();
+    if (envId != null) {
+      setStoredOrgId(envId);
+      setOrgIdState(envId);
+      setOrgReady(true);
+      refreshOrgLabel().catch(() => {});
+      return;
+    }
+
+    if (!getAccessToken()) {
+      clearStoredOrgId();
+      setOrgIdState(null);
+      setOrgName(null);
+      setOrgReady(true);
+      return;
+    }
+
+    try {
+      const orgs = await listMyOrgs();
+      const stored = getStoredOrgId();
+      let chosen = stored != null ? orgs.find((o) => o.id === stored) : undefined;
+      if (!chosen && orgs.length > 0) {
+        chosen = orgs[0];
+      }
+      if (chosen) {
+        setStoredOrgId(chosen.id);
+        setOrgIdState(chosen.id);
+        setOrgName(chosen.name);
+      } else {
+        clearStoredOrgId();
+        setOrgIdState(null);
+        setOrgName(null);
+      }
+    } catch {
+      /* leave org unset */
+    } finally {
+      setOrgReady(true);
+    }
+  }, [refreshOrgLabel]);
+
   useEffect(() => {
     let cancelled = false;
-    async function bootstrap() {
-      const envId = readEnvDefaultOrgId();
-      if (envId != null) {
-        setStoredOrgId(envId);
-        if (!cancelled) {
-          setOrgIdState(envId);
-          setOrgReady(true);
-        }
-        refreshOrgLabel().catch(() => {});
-        return;
-      }
-      try {
-        const orgs = await listOrgs();
-        if (cancelled) return;
-        const stored = getStoredOrgId();
-        let chosen: (typeof orgs)[0] | undefined;
-        if (stored != null) {
-          chosen = orgs.find((o) => o.id === stored);
-        }
-        if (!chosen && orgs.length > 0) {
-          chosen = orgs[0];
-        }
-        if (chosen) {
-          setStoredOrgId(chosen.id);
-          setOrgIdState(chosen.id);
-          setOrgName(chosen.name);
-        } else {
-          clearStoredOrgId();
-          setOrgIdState(null);
-          setOrgName(null);
-        }
-      } catch {
-        /* leave org unset */
-      } finally {
-        if (!cancelled) setOrgReady(true);
+    async function run() {
+      setOrgReady(false);
+      await bootstrap();
+      if (!cancelled) {
+        /* orgReady set inside bootstrap */
       }
     }
-    bootstrap();
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [refreshOrgLabel]);
+  }, [bootstrap]);
 
-  const setOrgId = useCallback((id: number) => {
-    setStoredOrgId(id);
-    setOrgIdState(id);
-    refreshOrgLabel().catch(() => {});
-  }, [refreshOrgLabel]);
+  useEffect(() => {
+    function onSessionChange() {
+      void bootstrap();
+    }
+    window.addEventListener(SESSION_CHANGED_EVENT, onSessionChange);
+    return () => window.removeEventListener(SESSION_CHANGED_EVENT, onSessionChange);
+  }, [bootstrap]);
+
+  const setOrgId = useCallback(
+    (id: number) => {
+      setStoredOrgId(id);
+      setOrgIdState(id);
+      refreshOrgLabel().catch(() => {});
+    },
+    [refreshOrgLabel],
+  );
 
   const value = useMemo(
     () => ({

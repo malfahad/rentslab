@@ -4,6 +4,8 @@ from .models import Tenant
 
 
 class TenantSerializer(serializers.ModelSerializer):
+    leases_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Tenant
         fields = [
@@ -25,4 +27,10 @@ class TenantSerializer(serializers.ModelSerializer):
             'kyc_info',
             'created_at',
             'updated_at',
+            'leases_count',
         ]
+
+    def get_leases_count(self, obj):
+        if hasattr(obj, 'leases_count'):
+            return obj.leases_count
+        return obj.leases.count()

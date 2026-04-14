@@ -38,6 +38,18 @@ test.describe("Login", () => {
       updated_at: "2026-01-01T00:00:00Z",
     };
 
+    await page.route("**/api/v1/auth/me/orgs/", async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([orgJson]),
+      });
+    });
+
     await page.route("**/api/v1/orgs/**", async (route) => {
       if (route.request().method() !== "GET") {
         await route.continue();

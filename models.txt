@@ -17,6 +17,17 @@ Companion to `first draft.txt`. Table names use **snake_case** (PostgreSQL-style
 * Repeatable pattern: `address_line1`, `address_line2` (suite, floor), `city`, `region`, `postal_code`, `country_code`.
 * Use `contact_info` JSONB only for overflow or legacy imports when you already have structured columns.
 
+**Navigation map (staff UI)**
+
+| Section | Screens | Primary tables |
+|---------|---------|----------------|
+| Portfolio | Landlords, Buildings, Units | `landlord`, `building`, `unit` |
+| Operations | Tenants, Lease Arrangements, Services | `tenant`, `lease`, `service`, `service_subscription` |
+| Finance | Invoices, Credit Notes, Payments, Expenses | `invoice`, `invoice_line_item`, `credit_note`, `payment`, `payment_allocation`, `expense_category`, `expense` |
+| Maintenance | Job Orders, Vendors | `job_order`, `vendor` |
+
+Shared cross-cutting: `org`, `user`, `user_role`.
+
 ---
 
 ## org
@@ -209,8 +220,10 @@ Core pivot: tenancy for one unit.
 | start_date | DATE | NO | | |
 | end_date | DATE | YES | | Nullable for open-ended |
 | rent_amount | NUMERIC(14, 2) | NO | | Base rent per billing cycle |
+| rent_currency | CHAR(3) | YES | | ISO 4217 (e.g. USD, KES) |
 | deposit_amount | NUMERIC(14, 2) | YES | | |
-| billing_cycle | VARCHAR(32) | NO | | e.g. `monthly`, `weekly`, `quarterly` |
+| deposit_currency | CHAR(3) | YES | | ISO 4217; may match `rent_currency` |
+| billing_cycle | VARCHAR(32) | NO | | `daily`, `weekly`, `monthly` (default), `quarterly`, `annually` |
 | status | VARCHAR(32) | NO | | `active`, `terminated`, `expired` |
 | billing_same_as_tenant_address | BOOLEAN | NO | | Default `true`; if `false`, use columns below |
 | billing_address_line1 | VARCHAR(255) | YES | | Invoice / notice address when not same as tenant |
@@ -239,6 +252,7 @@ Per-org catalog of billable services.
 | org_id | BIGINT | NO | FK → org | |
 | name | VARCHAR(128) | NO | | e.g. water, security |
 | billing_type | VARCHAR(32) | NO | | `fixed`, `metered`, `usage_based` |
+| currency | VARCHAR(3) | NO | | ISO 4217 default for rates (e.g. USD, KES); blank allowed |
 | is_active | BOOLEAN | NO | | Default `true` |
 | created_at | TIMESTAMPTZ | NO | | |
 | updated_at | TIMESTAMPTZ | NO | | |
@@ -255,7 +269,8 @@ Per-org catalog of billable services.
 | lease_id | BIGINT | NO | FK → lease | |
 | service_id | BIGINT | NO | FK → service | Same org as lease (invariant) |
 | rate | NUMERIC(14, 2) | NO | | Price for this subscription |
-| billing_cycle | VARCHAR(32) | NO | | May mirror lease or override |
+| currency | VARCHAR(3) | NO | | ISO 4217 for `rate`; blank inherits from `service.currency` on create |
+| billing_cycle | VARCHAR(32) | NO | | Same vocabulary as lease: `daily` … `annually`; may mirror lease or override |
 | effective_from | DATE | YES | | Optional |
 | effective_to | DATE | YES | | Optional |
 | created_at | TIMESTAMPTZ | NO | | |
@@ -371,12 +386,133 @@ Per-org catalog of billable services.
 
 ---
 
+## vendor
+
+Suppliers and contractors used for maintenance and (optionally) billable pass-through costs. Org-scoped directory.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| vendor_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | |
+| name | VARCHAR(255) | NO | | Trading or legal display name |
+| vendor_type | VARCHAR(32) | YES | | e.g. `plumber`, `electrician`, `general`, `supplier` |
+| email | VARCHAR(320) | YES | | |
+| phone | VARCHAR(64) | YES | | |
+| address_line1 | VARCHAR(255) | YES | | |
+| address_line2 | VARCHAR(255) | YES | | |
+| city | VARCHAR(128) | YES | | |
+| region | VARCHAR(128) | YES | | |
+| postal_code | VARCHAR(32) | YES | | |
+| country_code | CHAR(2) | YES | | |
+| tax_id | VARCHAR(128) | YES | | VAT / withholding registration if you remit on their behalf |
+| payment_terms | VARCHAR(128) | YES | | e.g. `Net 30`, `on_completion` |
+| bank_details | JSONB | YES | | Encrypted at rest in production |
+| contact_info | JSONB | YES | | Alternate contacts, site supervisors |
+| is_active | BOOLEAN | NO | | Default `true` |
+| internal_notes | VARCHAR(1024) | YES | | Non-secret ops notes |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(org_id)`, `(org_id, name)`.
+
+---
+
+## job_order
+
+Maintenance work order: typically tied to a site (`building` / optional `unit`) and optionally assigned to a `vendor`.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| job_order_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | Denormalized; must match `building.org_id` |
+| job_number | VARCHAR(64) | NO | UNIQUE per org | Human-facing WO number |
+| building_id | BIGINT | NO | FK → building | |
+| unit_id | BIGINT | YES | FK → unit | If work is unit-specific; must satisfy `unit.building_id = building_id` |
+| vendor_id | BIGINT | YES | FK → vendor | Assigned contractor; same `org_id` |
+| title | VARCHAR(255) | NO | | Short summary |
+| description | TEXT | YES | | Scope, access instructions (non-secret) |
+| status | VARCHAR(32) | NO | | e.g. `draft`, `open`, `in_progress`, `completed`, `cancelled` |
+| priority | VARCHAR(32) | YES | | e.g. `low`, `normal`, `high`, `emergency` |
+| reported_at | TIMESTAMPTZ | YES | | When issue was reported |
+| scheduled_start | TIMESTAMPTZ | YES | | |
+| scheduled_end | TIMESTAMPTZ | YES | | |
+| completed_at | TIMESTAMPTZ | YES | | |
+| estimated_cost | NUMERIC(14, 2) | YES | | Optional budget line |
+| actual_cost | NUMERIC(14, 2) | YES | | Filled on completion; may feed `expense` |
+| reported_by_user_id | BIGINT | YES | FK → user | Staff who opened the job; must have `user_role` for `org_id` |
+| external_reference | VARCHAR(128) | YES | | Legacy / CMMS id |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Constraints:** If `unit_id` set, application must enforce `unit.building_id = job_order.building_id`.
+
+**Indexes:** `(org_id, status)`, `(building_id)`, `(unit_id)`, `(vendor_id)`, `(scheduled_start)`.
+
+---
+
+## expense_category
+
+Per-org chart of expense types for reporting, filters, and (optionally) GL codes. Referenced by `expense`.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| expense_category_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | |
+| name | VARCHAR(128) | NO | | Display label, e.g. Repairs, Utilities |
+| code | VARCHAR(64) | YES | | Stable short code for imports / accounting export; **UNIQUE per org** when present |
+| description | VARCHAR(512) | YES | | |
+| sort_order | SMALLINT | YES | | UI and report ordering; default 0 or nulls last |
+| is_active | BOOLEAN | NO | | Default `true`; hide from pickers when `false` |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Constraints:** `UNIQUE (org_id, name)`.
+
+**Indexes:** `(org_id)`, `(org_id, is_active)`.
+
+---
+
+## expense
+
+Org operational spend: repairs, utilities, fees, or other costs. Optional links to portfolio (`building` / `lease`) or `vendor` for payables-style tracking.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| expense_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | |
+| expense_category_id | BIGINT | NO | FK → expense_category | Same `org_id` as `expense` (invariant) |
+| expense_number | VARCHAR(64) | YES | UNIQUE per org | Optional human-facing ref |
+| expense_date | DATE | NO | | Accrual or invoice date |
+| amount | NUMERIC(14, 2) | NO | | Negative amounts only if you model reversals explicitly |
+| currency_code | CHAR(3) | YES | | ISO 4217; omit if single-currency per org |
+| description | VARCHAR(512) | NO | | |
+| status | VARCHAR(32) | NO | | e.g. `draft`, `approved`, `paid`, `void` |
+| building_id | BIGINT | YES | FK → building | Cost attributable to a site |
+| unit_id | BIGINT | YES | FK → unit | If set, must belong to `building_id` when both present |
+| lease_id | BIGINT | YES | FK → lease | e.g. rechargeable to tenant; org must match |
+| vendor_id | BIGINT | YES | FK → vendor | Payee |
+| job_order_id | BIGINT | YES | FK → job_order | Link spend to a WO |
+| payment_method | VARCHAR(32) | YES | | e.g. `bank`, `cash`, `card` |
+| reference | VARCHAR(255) | YES | | Bank ref, cheque #, external bill id |
+| receipt_url | VARCHAR(1024) | YES | | Or `document_id` FK if you have a files table |
+| approved_by_user_id | BIGINT | YES | FK → user | |
+| paid_at | TIMESTAMPTZ | YES | | When cash left the org |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Constraints:** If both `building_id` and `unit_id` set, enforce `unit.building_id = expense.building_id`. If `job_order_id` set, `job_order.org_id = expense.org_id` and usually same `building_id` (enforce in app). `expense_category.org_id = expense.org_id`.
+
+**Indexes:** `(org_id, expense_date DESC)`, `(expense_category_id)`, `(vendor_id)`, `(building_id)`, `(lease_id)`, `(job_order_id)`.
+
+---
+
 ## How address fields work together
 
 * **Building** holds the canonical physical site address; **unit** adds `floor`, `entrance`, and optional `address_override_*` when the postal address differs.
 * **Tenant** holds default correspondence and company identifiers.
 * **Lease** can override billing address via `billing_same_as_tenant_address` + `billing_*` when notices and invoices must go elsewhere.
 * **Invoice** `bill_to_*` columns are **snapshots at issue time** (copy from tenant/lease/billing rules when the invoice is generated) so PDFs and legal copies stay stable if the tenant moves later.
+* **Vendor** mirrors **landlord**-style address/contact columns for payables and job correspondence.
 
 ---
 
@@ -391,6 +527,10 @@ Per-org catalog of billable services.
 | Payment lease_id | If set, all allocations’ invoices have `invoice.lease_id = payment.lease_id` |
 | Service subscription | `service.org_id` = org of lease (via unit → building) |
 | Invoice org (if used) | `invoice.org_id` = same org as lease’s building |
+| Vendor | `vendor.org_id` consistent with any linked `job_order` / `expense` |
+| Job order | `job_order.org_id` = `building.org_id`; `unit_id` ∈ that building |
+| Expense | `expense.org_id` matches `building`, `lease`, `vendor`, `job_order` when those FKs are set |
+| Expense category | `expense_category.org_id = expense.org_id` for `expense.expense_category_id` |
 
 ---
 
@@ -413,5 +553,9 @@ Per-org catalog of billable services.
 | Credit Note | `credit_note` |
 | Payment | `payment` |
 | Payment Allocation | `payment_allocation` |
+| Expense Category | `expense_category` |
+| Expense | `expense` |
+| Vendor | `vendor` |
+| Job Order | `job_order` |
 
 **Reserved keyword:** In PostgreSQL, rename table `user` → `app_user` or `staff_user` to avoid quoting.

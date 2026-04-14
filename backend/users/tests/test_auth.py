@@ -418,6 +418,47 @@ class AuthMisuseTests(TestCase):
             detail_substring='Authentication credentials were not provided',
         )
 
+    def test_me_orgs_requires_authentication(self):
+        r = self.client.get('/api/v1/auth/me/orgs/')
+        assert_error_response(
+            self,
+            r,
+            status.HTTP_401_UNAUTHORIZED,
+            detail_substring='Authentication credentials were not provided',
+        )
+
+    def test_me_orgs_returns_memberships(self):
+        self.client.post(
+            '/api/v1/auth/register/',
+            {
+                'email': 'meorgs@example.com',
+                'password': 'securepass1',
+                'org_name': 'My Org Co',
+            },
+            format='json',
+        )
+        u = User.objects.get(email='meorgs@example.com')
+        self.client.post(
+            '/api/v1/auth/activate-account/',
+            {'uid': _uid(u), 'token': account_activation_token.make_token(u)},
+            format='json',
+        )
+        lr = self.client.post(
+            '/api/v1/auth/login/',
+            {'email': 'meorgs@example.com', 'password': 'securepass1'},
+            format='json',
+        )
+        self.assertEqual(lr.status_code, status.HTTP_200_OK)
+        token = lr.json()['access']
+        r = self.client.get(
+            '/api/v1/auth/me/orgs/',
+            HTTP_AUTHORIZATION=f'Bearer {token}',
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        data = r.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['name'], 'My Org Co')
+
     def test_delete_account_requires_authentication(self):
         r = self.client.post('/api/v1/auth/delete-account/', {'password': 'x'}, format='json')
         assert_error_response(

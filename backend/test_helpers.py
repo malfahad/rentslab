@@ -152,6 +152,7 @@ def create_service(org=None, **kwargs):
         org=org,
         name=kwargs.get('name', 'Water'),
         billing_type=kwargs.get('billing_type', 'fixed'),
+        currency=kwargs.get('currency', ''),
         is_active=kwargs.get('is_active', True),
     )
 
@@ -167,6 +168,7 @@ def create_service_subscription(lease=None, service=None, **kwargs):
         lease=lease,
         service=service,
         rate=kwargs.get('rate', Decimal('50.00')),
+        currency=kwargs.get('currency', ''),
         billing_cycle=kwargs.get('billing_cycle', 'monthly'),
     )
 
@@ -255,6 +257,72 @@ def create_payment_allocation(payment=None, invoice=None, **kwargs):
         payment=payment,
         invoice=invoice,
         amount_applied=kwargs.get('amount_applied', Decimal('500.00')),
+    )
+
+
+def create_vendor(org=None, **kwargs):
+    from vendor.models import Vendor
+
+    if org is None:
+        org = create_org()
+    return Vendor.objects.create(
+        org=org,
+        name=kwargs.get('name', 'Test Vendor'),
+        vendor_type=kwargs.get('vendor_type', ''),
+        is_active=kwargs.get('is_active', True),
+    )
+
+
+def create_expense_category(org=None, **kwargs):
+    from expense_category.models import ExpenseCategory
+
+    if org is None:
+        org = create_org()
+    return ExpenseCategory.objects.create(
+        org=org,
+        name=kwargs.get('name', 'Repairs'),
+        code=kwargs.get('code', ''),
+        is_active=kwargs.get('is_active', True),
+    )
+
+
+def create_job_order(org=None, building=None, **kwargs):
+    from job_order.models import JobOrder
+
+    if building is None:
+        building = create_building()
+    if org is None:
+        org = building.org
+    return JobOrder.objects.create(
+        org=org,
+        job_number=kwargs.get('job_number', 'WO-001'),
+        building=building,
+        unit=kwargs.get('unit'),
+        vendor=kwargs.get('vendor'),
+        title=kwargs.get('title', 'Fix leak'),
+        status=kwargs.get('status', 'open'),
+    )
+
+
+def create_expense(org=None, expense_category=None, **kwargs):
+    from expense.models import Expense
+
+    if org is None:
+        org = create_org()
+    if expense_category is None:
+        expense_category = create_expense_category(org=org)
+    return Expense.objects.create(
+        org=org,
+        expense_category=expense_category,
+        expense_date=kwargs.get('expense_date', date(2025, 3, 1)),
+        amount=kwargs.get('amount', Decimal('100.00')),
+        description=kwargs.get('description', 'Supplies'),
+        status=kwargs.get('status', 'draft'),
+        building=kwargs.get('building'),
+        unit=kwargs.get('unit'),
+        lease=kwargs.get('lease'),
+        vendor=kwargs.get('vendor'),
+        job_order=kwargs.get('job_order'),
     )
 
 

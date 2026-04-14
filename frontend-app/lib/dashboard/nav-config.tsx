@@ -15,14 +15,6 @@ export type NavGroup = {
   items: NavLeaf[];
 };
 
-function IconDashboard({ className }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-      <path d="M4 10.5L12 4l8 6.5V20a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-9.5z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function IconBuilding({ className }: NavIconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
@@ -47,11 +39,27 @@ function IconUsers({ className }: NavIconProps) {
   );
 }
 
-function IconFile({ className }: NavIconProps) {
+function IconLease({ className }: NavIconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 2v6h6M8 13h8M8 17h6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconService({ className }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconInvoice({ className }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9h6m-6 4h6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -65,10 +73,47 @@ function IconCredit({ className }: NavIconProps) {
   );
 }
 
-function IconWrench({ className }: NavIconProps) {
+function IconPayment({ className }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconExpense({ className }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M12 3v18M19 9l-7-6-7 6M5 15l7 6 7-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconJobOrder({ className }: NavIconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Storefront / shop — distinct from a generic “home” icon. */
+function IconVendor({ className }: NavIconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m2 7 4.41-4.41a2 2 0 0 1 2.83 0L12 7" />
+      <path d="M4 7v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7" />
+      <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
+      <path d="M10 10h4" />
     </svg>
   );
 }
@@ -89,16 +134,8 @@ function IconLandlord({ className }: NavIconProps) {
   );
 }
 
-/** Collapsible groups for the left nav (aligned with plan.md). */
+/** Collapsible groups for the left nav. */
 export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
-  {
-    id: "overview",
-    label: "Overview",
-    defaultOpen: true,
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: IconDashboard },
-    ],
-  },
   {
     id: "portfolio",
     label: "Portfolio",
@@ -115,10 +152,34 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard/tenants", label: "Tenants", icon: IconUsers },
-      { href: "/dashboard/leases", label: "Leases", icon: IconFile },
-      { href: "/dashboard/payments", label: "Payments", icon: IconCredit },
-      { href: "/dashboard/maintenance", label: "Maintenance", icon: IconWrench },
-      { href: "/dashboard/reports", label: "Reports", icon: IconChart },
+      { href: "/dashboard/leases", label: "Lease Arrangements", icon: IconLease },
+      { href: "/dashboard/services", label: "Services", icon: IconService },
     ],
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    defaultOpen: true,
+    items: [
+      { href: "/dashboard/invoices", label: "Invoices", icon: IconInvoice },
+      { href: "/dashboard/credit-notes", label: "Credit Notes", icon: IconCredit },
+      { href: "/dashboard/payments", label: "Payments", icon: IconPayment },
+      { href: "/dashboard/expenses", label: "Expenses", icon: IconExpense },
+    ],
+  },
+  {
+    id: "maintenance",
+    label: "Maintenance",
+    defaultOpen: true,
+    items: [
+      { href: "/dashboard/job-orders", label: "Job Orders", icon: IconJobOrder },
+      { href: "/dashboard/vendors", label: "Vendors", icon: IconVendor },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    defaultOpen: true,
+    items: [{ href: "/dashboard/reports", label: "Reports", icon: IconChart }],
   },
 ];

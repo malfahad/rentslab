@@ -20,4 +20,8 @@ urlpatterns = [
     path('credit-notes/', include('credit_note.urls')),
     path('payments/', include('payment.urls')),
     path('payment-allocations/', include('payment_allocation.urls')),
+    path('vendors/', include('vendor.urls')),
+    path('expense-categories/', include('expense_category.urls')),
+    path('job-orders/', include('job_order.urls')),
+    path('expenses/', include('expense.urls')),
 ]

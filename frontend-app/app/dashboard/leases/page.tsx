@@ -1,5 +1,5 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import LeasesPageClient from "./leases-page-client";
 
 export default function LeasesPage() {
-  return <ModulePlaceholder title="Leases" />;
+  return <LeasesPageClient />;
 }

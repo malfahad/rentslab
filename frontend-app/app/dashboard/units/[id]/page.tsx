@@ -122,10 +122,10 @@ export default function UnitDetailPage() {
                 View units in building
               </Link>
               <Link
-                href="/dashboard/leases"
+                href={`/dashboard/leases?unit=${id}`}
                 className="btn-secondary w-full"
               >
-                View leases
+                View leases for this unit
               </Link>
               <button
                 type="button"

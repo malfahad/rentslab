@@ -1,5 +1,5 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import { TenantsPageClient } from "./tenants-page-client";
 
 export default function TenantsPage() {
-  return <ModulePlaceholder title="Tenants" />;
+  return <TenantsPageClient />;
 }

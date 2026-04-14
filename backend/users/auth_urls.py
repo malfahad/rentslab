@@ -6,6 +6,7 @@ from .auth_views import (
     ForgotPasswordView,
     JWTTokenRefreshView,
     LoginView,
+    MeOrgsView,
     MeView,
     RegisterView,
     ResetPasswordView,
@@ -19,5 +20,6 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='auth-reset-password'),
     path('activate-account/', ActivateAccountView.as_view(), name='auth-activate-account'),
     path('me/', MeView.as_view(), name='auth-me'),
+    path('me/orgs/', MeOrgsView.as_view(), name='auth-me-orgs'),
     path('delete-account/', DeleteAccountView.as_view(), name='auth-delete-account'),
 ]

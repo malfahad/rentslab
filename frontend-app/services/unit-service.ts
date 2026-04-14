@@ -11,6 +11,8 @@ export type ListUnitsParams = {
   status?: string;
   unit_type?: string;
   building?: number;
+  /** Exclude units with an active lease and units in maintenance (for new leases). */
+  available_for_lease?: boolean;
 };
 
 export async function listUnits(
@@ -27,6 +29,7 @@ export async function listUnits(
       status: options?.status,
       unit_type: options?.unit_type,
       building: options?.building,
+      available_for_lease: options?.available_for_lease === true ? true : undefined,
     })}`,
   );
 }
