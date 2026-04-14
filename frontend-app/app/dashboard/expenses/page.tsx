@@ -1,5 +1,5 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import { ExpensesPageClient } from "./expenses-page-client";
 
 export default function ExpensesPage() {
-  return <ModulePlaceholder title="Expenses" />;
+  return <ExpensesPageClient />;
 }

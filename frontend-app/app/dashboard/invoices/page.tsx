@@ -1,5 +1,5 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import { InvoicesPageClient } from "./invoices-page-client";
 
 export default function InvoicesPage() {
-  return <ModulePlaceholder title="Invoices" />;
+  return <InvoicesPageClient />;
 }

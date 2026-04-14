@@ -31,6 +31,19 @@ export async function listLeases(
   );
 }
 
+/** All leases in the org (paginates until exhausted). */
+export async function listAllLeases(): Promise<LeaseDto[]> {
+  const acc: LeaseDto[] = [];
+  let page = 1;
+  while (true) {
+    const r = await listLeases({ page, pageSize: 100, ordering: "-start_date" });
+    acc.push(...r.results);
+    if (!r.next) break;
+    page += 1;
+  }
+  return acc;
+}
+
 /** All leases for a tenant (paginates until exhausted). */
 export async function listLeasesForTenant(tenantId: number): Promise<LeaseDto[]> {
   const acc: LeaseDto[] = [];

@@ -104,3 +104,42 @@ export function EmptyUnitsSvg({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+
+/** Empty vendors — toolbox / wrench. */
+export function EmptyVendorsSvg({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 280 200"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <ellipse cx="140" cy="172" rx="96" ry="10" fill="#E5E7EB" opacity="0.7" />
+      <rect
+        x="72"
+        y="56"
+        width="136"
+        height="88"
+        rx="10"
+        stroke="#1E3A5F"
+        strokeWidth="1.5"
+        fill="#F7F9FB"
+      />
+      <path
+        d="M96 80h88M96 100h64M96 120h72"
+        stroke="#2F5D8A"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.35"
+      />
+      <path
+        d="M168 44l20-12 12 20-18 10-14-18z"
+        stroke="#C7A348"
+        strokeWidth="1.5"
+        fill="#FFFCF5"
+      />
+      <circle cx="182" cy="42" r="6" stroke="#1E3A5F" strokeWidth="1.5" fill="#FFFFFF" />
+    </svg>
+  );
+}

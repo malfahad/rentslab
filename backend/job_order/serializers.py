@@ -1,8 +1,11 @@
 from rest_framework import serializers
 
 from access.services import get_org_id_from_request
+from invoice.models import Invoice
 
+from .constants import is_transition_allowed
 from .models import JobOrder
+from .services import next_job_number
 
 
 class JobOrderSerializer(serializers.ModelSerializer):
@@ -30,6 +33,11 @@ class JobOrderSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+        extra_kwargs = {
+            'job_number': {'required': False, 'allow_blank': True},
+        }
+        # Default UniqueTogetherValidator requires job_number in input; we assign it in create().
+        validators = []
 
     def validate_org(self, org):
         request = self.context.get('request')
@@ -75,4 +83,37 @@ class JobOrderSerializer(serializers.ModelSerializer):
         if vendor and org and vendor.org_id != org.pk:
             raise serializers.ValidationError({'vendor': 'Vendor must belong to the job order organization.'})
 
+        if 'status' in attrs and self.instance is not None:
+            old = self.instance.status
+            new = attrs['status']
+            if not is_transition_allowed(old, new):
+                raise serializers.ValidationError(
+                    {'status': f'Transition from {old!r} to {new!r} is not allowed.'}
+                )
+
         return attrs
+
+    def create(self, validated_data):
+        org = validated_data['org']
+        jn = validated_data.get('job_number')
+        if jn is None or not str(jn).strip():
+            validated_data['job_number'] = next_job_number(org.pk)
+        instance = JobOrder(**validated_data)
+        instance.full_clean()
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.full_clean()
+        instance.save()
+        return instance
+
+
+class JobOrderRechargeSerializer(serializers.Serializer):
+    invoice = serializers.PrimaryKeyRelatedField(
+        queryset=Invoice.objects.select_related('lease', 'lease__unit', 'lease__unit__building', 'org'),
+    )
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    description = serializers.CharField(max_length=512)

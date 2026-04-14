@@ -1,5 +1,5 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import { PaymentsPageClient } from "./payments-page-client";
 
 export default function PaymentsPage() {
-  return <ModulePlaceholder title="Payments" />;
+  return <PaymentsPageClient />;
 }

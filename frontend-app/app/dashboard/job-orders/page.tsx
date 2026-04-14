@@ -1,5 +1,5 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import { JobOrdersPageClient } from "./job-orders-page-client";
 
 export default function JobOrdersPage() {
-  return <ModulePlaceholder title="Job Orders" />;
+  return <JobOrdersPageClient />;
 }

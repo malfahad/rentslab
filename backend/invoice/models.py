@@ -23,6 +23,12 @@ class Invoice(models.Model):
     bill_to_postal_code = models.CharField(max_length=32, blank=True)
     bill_to_country_code = models.CharField(max_length=2, blank=True)
     bill_to_tax_id = models.CharField(max_length=128, blank=True)
+    issue_kind = models.CharField(
+        max_length=16,
+        blank=True,
+        default='',
+        help_text='Empty for legacy; "catch_up" for automated batch issuance.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -183,3 +183,100 @@ export type UserRoleDto = {
   created_at: string;
   updated_at: string;
 };
+
+/** Vendor row (API serializer). */
+export type VendorDto = {
+  id: number;
+  org: number;
+  name: string;
+  vendor_type: string;
+  email: string;
+  phone: string;
+  address_line1: string;
+  address_line2: string;
+  city: string;
+  region: string;
+  postal_code: string;
+  country_code: string;
+  tax_id: string;
+  payment_terms: string;
+  bank_details: JsonObject | null;
+  contact_info: JsonObject | null;
+  is_active: boolean;
+  internal_notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type VendorCreate = {
+  org: number;
+  name: string;
+  vendor_type?: string;
+  email?: string;
+  phone?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  region?: string;
+  postal_code?: string;
+  country_code?: string;
+  tax_id?: string;
+  payment_terms?: string;
+  bank_details?: JsonObject | null;
+  contact_info?: JsonObject | null;
+  is_active?: boolean;
+  internal_notes?: string;
+};
+
+export type VendorUpdate = Partial<
+  Omit<VendorDto, "id" | "org" | "created_at" | "updated_at">
+>;
+
+/** Work order / maintenance job (API-aligned). */
+export type JobOrderDto = {
+  id: number;
+  org: number;
+  job_number: string;
+  building: number;
+  unit: number | null;
+  vendor: number | null;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  reported_at: string | null;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  completed_at: string | null;
+  estimated_cost: string | null;
+  actual_cost: string | null;
+  reported_by: number | null;
+  external_reference: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JobOrderCreate = {
+  org: number;
+  building: number;
+  unit?: number | null;
+  vendor?: number | null;
+  title: string;
+  description?: string;
+  /** Omit to auto-generate (e.g. JO-{org}-00001). */
+  job_number?: string;
+  status?: string;
+  priority?: string;
+  reported_at?: string | null;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
+  estimated_cost?: string | null;
+  external_reference?: string;
+};
+
+export type JobOrderUpdate = Partial<
+  Omit<
+    JobOrderDto,
+    "id" | "org" | "created_at" | "updated_at" | "actual_cost" | "completed_at"
+  >
+>;

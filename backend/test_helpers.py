@@ -300,7 +300,7 @@ def create_job_order(org=None, building=None, **kwargs):
         unit=kwargs.get('unit'),
         vendor=kwargs.get('vendor'),
         title=kwargs.get('title', 'Fix leak'),
-        status=kwargs.get('status', 'open'),
+        status=kwargs.get('status', 'draft'),
     )
 
 
