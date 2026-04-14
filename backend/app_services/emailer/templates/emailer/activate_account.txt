@@ -1,0 +1,17 @@
+Activate your {{ site_name }} account
+
+{% if activation_url %}
+Open this link in your browser to activate your account:
+{{ activation_url }}
+
+{% else %}
+Use the following values with the "Activate account" action in the app (or API):
+
+uid={{ uid }}
+token={{ token }}
+
+{% endif %}
+If you did not create an account, you can ignore this message.
+
+— {{ site_name }}
+Questions? {{ support_email }}

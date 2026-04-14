@@ -1,0 +1,7 @@
+{% extends "emailer/base.html" %}
+{% block title %}Welcome — {{ site_name }}{% endblock %}
+{% block body %}
+<h1>Welcome{% if display_name %}, {{ display_name }}{% endif %}!</h1>
+<p>Your {{ site_name }} account is ready. You can sign in whenever you like.</p>
+<p class="muted">We are glad you are here.</p>
+{% endblock %}

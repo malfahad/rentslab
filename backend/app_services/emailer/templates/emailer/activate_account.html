@@ -1,0 +1,17 @@
+{% extends "emailer/base.html" %}
+{% block title %}Activate account — {{ site_name }}{% endblock %}
+{% block body %}
+<h1>Activate your account</h1>
+<p>Thanks for signing up for {{ site_name }}. Confirm your email to get started.</p>
+{% if activation_url %}
+<div class="btn-wrap">
+  <a class="btn" href="{{ activation_url }}">Activate account</a>
+</div>
+<p class="muted">If the button does not work, copy and paste this URL into your browser:</p>
+<p class="muted"><a href="{{ activation_url }}">{{ activation_url }}</a></p>
+{% else %}
+<p class="muted">Use these values where the app asks for activation:</p>
+<div class="token-block"><strong>uid</strong><br>{{ uid }}<br><br><strong>token</strong><br>{{ token }}</div>
+{% endif %}
+<p class="muted">If you did not create an account, you can ignore this email.</p>
+{% endblock %}

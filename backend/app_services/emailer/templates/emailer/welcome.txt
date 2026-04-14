@@ -1,0 +1,6 @@
+Welcome to {{ site_name }}{% if display_name %}, {{ display_name }}{% endif %}!
+
+Your account is active. You can sign in anytime.
+
+— {{ site_name }}
+Questions? {{ support_email }}

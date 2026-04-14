@@ -1,0 +1,9 @@
+Your {{ site_name }} sign-in email is changing
+
+The email address for your account will be updated to:
+
+{{ new_email }}
+
+If you did not request this change, contact {{ support_email }} right away.
+
+— {{ site_name }}

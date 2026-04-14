@@ -1,0 +1,12 @@
+{{ inviter_name }} invited you to join {{ org_name }} on {{ site_name }}
+
+{% if invitation_url %}
+Accept your invitation:
+{{ invitation_url }}
+
+{% else %}
+You will receive a link or code from your administrator to complete signup.
+
+{% endif %}
+— {{ site_name }}
+Questions? {{ support_email }}

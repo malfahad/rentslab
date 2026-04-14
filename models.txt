@@ -1,0 +1,417 @@
+# Data models — column reference
+
+Companion to `first draft.txt`. Table names use **snake_case** (PostgreSQL-style). Types are indicative; adjust for MySQL/SQLite (e.g. `JSON` vs `JSONB`, `DATETIME` vs `TIMESTAMPTZ`).
+
+**Conventions**
+
+* Primary keys: `BIGSERIAL` / `BIGINT` auto-increment, or `UUID` if you prefer opaque IDs (document choice once).
+* Money: `NUMERIC(14, 2)` (currency minor units; scale up if you need more precision).
+* Org scoping: every tenant-facing row either has `org_id` or is reachable only through an FK that carries org (see invariants in `first draft.txt` §3).
+* Optional audit fields (recommended on all transactional tables): `created_at`, `updated_at` (`TIMESTAMPTZ NOT NULL` with defaults); optional `created_by_user_id`, `updated_by_user_id` FK → `user`.
+
+**Addresses and geography**
+
+* **`country_code`**: `CHAR(2)` — ISO 3166-1 alpha-2 (e.g. `KE`, `NG`, `GB`).
+* **`region`**: state / province / county (label as fits jurisdiction).
+* **`postal_code`**: ZIP / postal code (format varies by country).
+* Repeatable pattern: `address_line1`, `address_line2` (suite, floor), `city`, `region`, `postal_code`, `country_code`.
+* Use `contact_info` JSONB only for overflow or legacy imports when you already have structured columns.
+
+---
+
+## org
+
+Legal / SaaS tenant: one property management company (or owner group).
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| org_id | BIGINT | NO | PK | |
+| name | VARCHAR(255) | NO | | Display name |
+| type | VARCHAR(32) | NO | | e.g. `property_manager`, `owner_group`, `reit` |
+| legal_name | VARCHAR(255) | YES | | Registered name if different from `name` |
+| email | VARCHAR(320) | YES | | Primary org contact email |
+| phone | VARCHAR(64) | YES | | E.164 or local format |
+| website | VARCHAR(512) | YES | | |
+| address_line1 | VARCHAR(255) | YES | | Registered / HQ street |
+| address_line2 | VARCHAR(255) | YES | | Suite, building name |
+| city | VARCHAR(128) | YES | | |
+| region | VARCHAR(128) | YES | | State / province |
+| postal_code | VARCHAR(32) | YES | | |
+| country_code | CHAR(2) | YES | | ISO 3166-1 alpha-2 |
+| settings | JSONB | YES | | Org-wide config (branding, tax defaults, locale, default currency) |
+| created_at | TIMESTAMPTZ | NO | | Default `now()` |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(type)` if filtered often; `(country_code, city)` if you filter directory-style reports.
+
+---
+
+## user
+
+Staff or login identity (not the renting **tenant**).
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| user_id | BIGINT | NO | PK | |
+| email | VARCHAR(320) | NO | UNIQUE | Login; normalize to lower case in app |
+| name | VARCHAR(255) | NO | | Full name or display name |
+| phone | VARCHAR(64) | YES | | Primary phone |
+| address_line1 | VARCHAR(255) | YES | | Staff mailing / HR address |
+| address_line2 | VARCHAR(255) | YES | | |
+| city | VARCHAR(128) | YES | | |
+| region | VARCHAR(128) | YES | | |
+| postal_code | VARCHAR(32) | YES | | |
+| country_code | CHAR(2) | YES | | |
+| contact_info | JSONB | YES | | Extra channels (WhatsApp, secondary phone) |
+| password_hash | VARCHAR(255) | YES | | If local auth; omit if SSO-only |
+| is_active | BOOLEAN | NO | | Default `true` |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(email)` unique.
+
+---
+
+## user_role
+
+Membership: one row per (user, org) with a role.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| user_role_id | BIGINT | NO | PK | |
+| user_id | BIGINT | NO | FK → user | ON DELETE CASCADE |
+| org_id | BIGINT | NO | FK → org | ON DELETE CASCADE |
+| role | VARCHAR(64) | NO | | e.g. `org_admin`, `property_manager`, `agent`, `read_only` |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Constraints:** `UNIQUE (user_id, org_id)`.
+
+**Indexes:** `(user_id, org_id)` UNIQUE; `(org_id)` for listing staff in org.
+
+---
+
+## landlord
+
+Owner of buildings within an org.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| landlord_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | |
+| name | VARCHAR(255) | NO | | Legal or display name |
+| legal_name | VARCHAR(255) | YES | | If different from `name` |
+| email | VARCHAR(320) | YES | | Primary contact |
+| phone | VARCHAR(64) | YES | | |
+| address_line1 | VARCHAR(255) | YES | | Registered / correspondence address |
+| address_line2 | VARCHAR(255) | YES | | |
+| city | VARCHAR(128) | YES | | |
+| region | VARCHAR(128) | YES | | |
+| postal_code | VARCHAR(32) | YES | | |
+| country_code | CHAR(2) | YES | | |
+| contact_info | JSONB | YES | | Overflow; alternate contacts |
+| bank_details | JSONB | YES | | Encrypted at rest in production |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(org_id)`.
+
+---
+
+## building
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| building_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | Must match `landlord.org_id` (invariant) |
+| landlord_id | BIGINT | NO | FK → landlord | |
+| name | VARCHAR(255) | NO | | Building label / marketing name |
+| address_line1 | VARCHAR(255) | NO | | Street; primary site address |
+| address_line2 | VARCHAR(255) | YES | | Estate, gate, block |
+| city | VARCHAR(128) | NO | | |
+| region | VARCHAR(128) | YES | | |
+| postal_code | VARCHAR(32) | YES | | |
+| country_code | CHAR(2) | NO | | ISO 3166-1 alpha-2 |
+| latitude | NUMERIC(10, 7) | YES | | WGS-84; for maps / geofencing |
+| longitude | NUMERIC(10, 7) | YES | | |
+| location_notes | VARCHAR(512) | YES | | Directions, landmarks |
+| type | VARCHAR(32) | NO | | `residential`, `commercial`, `mixed` |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(org_id)`, `(landlord_id)`, `(country_code, city)`, `(city)` for regional listings.
+
+---
+
+## unit
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| unit_id | BIGINT | NO | PK | |
+| building_id | BIGINT | NO | FK → building | |
+| unit_number | VARCHAR(64) | NO | | Unique per building |
+| floor | VARCHAR(32) | YES | | e.g. `3`, `G`, `B1` |
+| entrance | VARCHAR(64) | YES | | Wing, stairwell, door code hint (not secret storage) |
+| type | VARCHAR(32) | NO | | `apartment`, `shop`, `office`, … |
+| size | NUMERIC(10, 2) | YES | | Square meters or sq ft (document unit in settings) |
+| status | VARCHAR(32) | NO | | `vacant`, `occupied`, `maintenance` |
+| address_override_line1 | VARCHAR(255) | YES | | Only if unit has a distinct postal line (rare); else use building address + `unit_number` |
+| address_override_city | VARCHAR(128) | YES | | |
+| internal_notes | VARCHAR(512) | YES | | Access / handover notes (non-secret) |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Constraints:** `UNIQUE (building_id, unit_number)`.
+
+**Indexes:** `(building_id)`.
+
+---
+
+## tenant
+
+Per-org tenant record (renter / lessee party).
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| tenant_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | |
+| name | VARCHAR(255) | NO | | Person or company name |
+| tenant_type | VARCHAR(32) | NO | | `individual`, `company` |
+| email | VARCHAR(320) | YES | | Primary email |
+| phone | VARCHAR(64) | YES | | Primary mobile / phone |
+| address_line1 | VARCHAR(255) | YES | | Correspondence / primary residence |
+| address_line2 | VARCHAR(255) | YES | | |
+| city | VARCHAR(128) | YES | | |
+| region | VARCHAR(128) | YES | | |
+| postal_code | VARCHAR(32) | YES | | |
+| country_code | CHAR(2) | YES | | |
+| company_registration_number | VARCHAR(128) | YES | | Companies register / trade license |
+| tax_id | VARCHAR(128) | YES | | VAT / TIN where applicable |
+| contact_info | JSONB | YES | | Secondary contacts, emergency |
+| kyc_info | JSONB | YES | | KYC / compliance payload |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(org_id)`, `(org_id, name)` for search.
+
+---
+
+## lease
+
+Core pivot: tenancy for one unit.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| lease_id | BIGINT | NO | PK | |
+| unit_id | BIGINT | NO | FK → unit | |
+| tenant_id | BIGINT | NO | FK → tenant | Must match org via unit/building (invariant) |
+| managed_by_user_id | BIGINT | YES | FK → user | Optional; user must have `user_role` for this org |
+| start_date | DATE | NO | | |
+| end_date | DATE | YES | | Nullable for open-ended |
+| rent_amount | NUMERIC(14, 2) | NO | | Base rent per billing cycle |
+| deposit_amount | NUMERIC(14, 2) | YES | | |
+| billing_cycle | VARCHAR(32) | NO | | e.g. `monthly`, `weekly`, `quarterly` |
+| status | VARCHAR(32) | NO | | `active`, `terminated`, `expired` |
+| billing_same_as_tenant_address | BOOLEAN | NO | | Default `true`; if `false`, use columns below |
+| billing_address_line1 | VARCHAR(255) | YES | | Invoice / notice address when not same as tenant |
+| billing_address_line2 | VARCHAR(255) | YES | | |
+| billing_city | VARCHAR(128) | YES | | |
+| billing_region | VARCHAR(128) | YES | | |
+| billing_postal_code | VARCHAR(32) | YES | | |
+| billing_country_code | CHAR(2) | YES | | |
+| external_reference | VARCHAR(128) | YES | | Optional legacy / import id |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(unit_id)`, `(tenant_id)`, `(managed_by_user_id)`, `(status, end_date)` for active lease queries.
+
+**Business rule:** At most one `active` lease per `unit_id` (enforce in app or partial unique index if your DB supports it).
+
+---
+
+## service
+
+Per-org catalog of billable services.
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| service_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | |
+| name | VARCHAR(128) | NO | | e.g. water, security |
+| billing_type | VARCHAR(32) | NO | | `fixed`, `metered`, `usage_based` |
+| is_active | BOOLEAN | NO | | Default `true` |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(org_id)`.
+
+---
+
+## service_subscription
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| subscription_id | BIGINT | NO | PK | |
+| lease_id | BIGINT | NO | FK → lease | |
+| service_id | BIGINT | NO | FK → service | Same org as lease (invariant) |
+| rate | NUMERIC(14, 2) | NO | | Price for this subscription |
+| billing_cycle | VARCHAR(32) | NO | | May mirror lease or override |
+| effective_from | DATE | YES | | Optional |
+| effective_to | DATE | YES | | Optional |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(lease_id)`, `(service_id)`.
+
+---
+
+## invoice
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| invoice_id | BIGINT | NO | PK | |
+| lease_id | BIGINT | NO | FK → lease | |
+| org_id | BIGINT | YES | FK → org | **Optional denormalization** for fast org lists; sync with lease → building → org |
+| invoice_number | VARCHAR(64) | YES | UNIQUE per org | Human-facing number; allocate per org |
+| issue_date | DATE | NO | | |
+| due_date | DATE | NO | | |
+| total_amount | NUMERIC(14, 2) | NO | | Should equal sum of line items when posted |
+| status | VARCHAR(32) | NO | | `paid`, `unpaid`, `partial`, `void` |
+| bill_to_name | VARCHAR(255) | YES | | Snapshot: legal addressee on issue date |
+| bill_to_address_line1 | VARCHAR(255) | YES | | Snapshot for PDF / tax |
+| bill_to_address_line2 | VARCHAR(255) | YES | | |
+| bill_to_city | VARCHAR(128) | YES | | |
+| bill_to_region | VARCHAR(128) | YES | | |
+| bill_to_postal_code | VARCHAR(32) | YES | | |
+| bill_to_country_code | CHAR(2) | YES | | |
+| bill_to_tax_id | VARCHAR(128) | YES | | Tenant / company tax id at issue time |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(lease_id, status)`, `(lease_id, due_date)`, `(org_id, issue_date)` if `org_id` populated.
+
+---
+
+## invoice_line_item
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| item_id | BIGINT | NO | PK | |
+| invoice_id | BIGINT | NO | FK → invoice | ON DELETE CASCADE |
+| line_number | SMALLINT | NO | | Display order |
+| description | VARCHAR(512) | NO | | e.g. Rent — March 2026 |
+| amount | NUMERIC(14, 2) | NO | | Line total |
+| service_id | BIGINT | YES | FK → service | Optional link for utility lines |
+| created_at | TIMESTAMPTZ | NO | | |
+
+**Indexes:** `(invoice_id)`.
+
+---
+
+## credit_note
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| credit_note_id | BIGINT | NO | PK | |
+| invoice_id | BIGINT | NO | FK → invoice | |
+| amount | NUMERIC(14, 2) | NO | | |
+| reason | VARCHAR(512) | YES | | |
+| credit_date | DATE | NO | | |
+| created_at | TIMESTAMPTZ | NO | | |
+| created_by_user_id | BIGINT | YES | FK → user | |
+
+**Indexes:** `(invoice_id)`.
+
+---
+
+## payment
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| payment_id | BIGINT | NO | PK | |
+| org_id | BIGINT | NO | FK → org | Denormalized; must equal `tenant.org_id` |
+| tenant_id | BIGINT | NO | FK → tenant | |
+| lease_id | BIGINT | YES | FK → lease | Denormalized when payment is single-lease; see invariants |
+| amount | NUMERIC(14, 2) | NO | | Gross payment amount |
+| method | VARCHAR(32) | NO | | `mobile_money`, `bank`, `cash`, … |
+| reference | VARCHAR(255) | YES | | Bank ref, txn id |
+| payment_date | TIMESTAMPTZ | NO | | When money received |
+| payer_name | VARCHAR(255) | YES | | If different from tenant (guarantor, company) |
+| payer_type | VARCHAR(32) | YES | | e.g. `tenant`, `guarantor`, `company` |
+| payer_email | VARCHAR(320) | YES | | |
+| payer_phone | VARCHAR(64) | YES | | |
+| payer_address_line1 | VARCHAR(255) | YES | | When remitter address matters for reconciliation |
+| payer_address_line2 | VARCHAR(255) | YES | | |
+| payer_city | VARCHAR(128) | YES | | |
+| payer_region | VARCHAR(128) | YES | | |
+| payer_postal_code | VARCHAR(32) | YES | | |
+| payer_country_code | CHAR(2) | YES | | |
+| created_at | TIMESTAMPTZ | NO | | |
+| updated_at | TIMESTAMPTZ | NO | | |
+
+**Note:** Column `date` in the conceptual model maps to `payment_date` here for clarity.
+
+**Indexes:** `(org_id, payment_date DESC)`, `(tenant_id, payment_date DESC)`, partial `(lease_id)` WHERE `lease_id IS NOT NULL`.
+
+---
+
+## payment_allocation
+
+| Column | Type | Null | Key | Notes |
+|--------|------|------|-----|--------|
+| allocation_id | BIGINT | NO | PK | |
+| payment_id | BIGINT | NO | FK → payment | ON DELETE CASCADE |
+| invoice_id | BIGINT | NO | FK → invoice | |
+| amount_applied | NUMERIC(14, 2) | NO | | Portion of payment to this invoice |
+| created_at | TIMESTAMPTZ | NO | | |
+
+**Constraints:** Sum of `amount_applied` per `payment_id` should equal `payment.amount` (enforce in transaction). Sum per `invoice_id` cannot exceed invoice balance (application rule).
+
+**Indexes:** `(payment_id)`, `(invoice_id)`.
+
+---
+
+## How address fields work together
+
+* **Building** holds the canonical physical site address; **unit** adds `floor`, `entrance`, and optional `address_override_*` when the postal address differs.
+* **Tenant** holds default correspondence and company identifiers.
+* **Lease** can override billing address via `billing_same_as_tenant_address` + `billing_*` when notices and invoices must go elsewhere.
+* **Invoice** `bill_to_*` columns are **snapshots at issue time** (copy from tenant/lease/billing rules when the invoice is generated) so PDFs and legal copies stay stable if the tenant moves later.
+
+---
+
+## Invariant checklist (implementation)
+
+| Rule | Check |
+|------|--------|
+| Landlord / building | `building.org_id = landlord.org_id` for `building.landlord_id` |
+| Lease | `tenant.org_id =` org of `unit.building` |
+| managed_by | If `lease.managed_by_user_id` set, exists `user_role` with same `org_id` as building |
+| Payment org | `payment.org_id = tenant.org_id` |
+| Payment lease_id | If set, all allocations’ invoices have `invoice.lease_id = payment.lease_id` |
+| Service subscription | `service.org_id` = org of lease (via unit → building) |
+| Invoice org (if used) | `invoice.org_id` = same org as lease’s building |
+
+---
+
+## Entity → table name map
+
+| Concept | Table |
+|---------|--------|
+| ORG | `org` |
+| User | `user` (quote in PostgreSQL: `"user"`) — consider `app_user` if reserved |
+| UserRole | `user_role` |
+| Landlord | `landlord` |
+| Building | `building` |
+| Unit | `unit` |
+| Tenant | `tenant` |
+| Lease Arrangement | `lease` |
+| Service | `service` |
+| Service Subscription | `service_subscription` |
+| Invoice | `invoice` |
+| Invoice Line Item | `invoice_line_item` |
+| Credit Note | `credit_note` |
+| Payment | `payment` |
+| Payment Allocation | `payment_allocation` |
+
+**Reserved keyword:** In PostgreSQL, rename table `user` → `app_user` or `staff_user` to avoid quoting.

@@ -1,0 +1,555 @@
+This note defines entities, relationships, invariants, and follow-up decisions for a multi-tenant property management domain. **Lease** is the operational pivot; **ORG** is the SaaS boundary. **§8** covers slow queries, indexes, and denormalization (e.g. **`payment.lease_id`**).
+
+---
+
+# 1) Core Entities (Extended)
+
+### 1. Organization Layer
+
+* **ORG**
+
+  * org_id
+  * name
+  * type (property_manager, owner_group, REIT)
+  * settings
+  * Relationships:
+
+    * has many **UserRole** (staff in this org)
+    * has many **Tenant** records
+    * has many landlords
+    * has many buildings
+
+---
+
+### 2. Users and access (org-scoped)
+
+* **User**
+
+  * user_id
+  * name
+  * contact_info
+  * email (login / identity)
+  * Relationships:
+
+    * has many **UserRole** (membership per org)
+    * may be assigned as **managed_by** on leases
+
+* **UserRole** (membership: user + org + role)
+
+  * user_role_id
+  * user_id (FK)
+  * org_id (FK)
+  * role (e.g. org_admin, property_manager, agent, read_only)
+  * Relationships:
+
+    * belongs to **User**
+    * belongs to **ORG**
+    * authorizes actions inside that org only
+
+---
+
+### 3. Ownership Layer
+
+* **Landlord**
+
+  * landlord_id
+  * org_id (FK)
+  * name
+  * contact_info
+  * bank_details
+  * Relationships:
+
+    * owns buildings
+    * receives payments
+
+---
+
+### 4. Property Structure
+
+* **Building**
+
+  * building_id
+  * org_id (FK)
+  * landlord_id (FK)
+  * name
+  * location
+  * type (residential/commercial/mixed)
+  * Relationships:
+
+    * belongs to landlord
+    * has many units
+
+* **Unit**
+
+  * unit_id
+  * building_id (FK)
+  * unit_number (unique per building)
+  * type (apartment/shop/office)
+  * size
+  * status (vacant/occupied/maintenance)
+  * Relationships:
+
+    * belongs to building
+    * has many leases (typically at most one **active** lease; enforce in application or DB constraint)
+
+---
+
+### 5. Tenant Layer
+
+* **Tenant** (per-org: one portfolio record per org; same person at another org is another row)
+
+  * tenant_id
+  * org_id (FK)
+  * name
+  * contact_info
+  * tenant_type (individual/company)
+  * KYC_info
+  * Relationships:
+
+    * belongs to **ORG**
+    * has many leases (within that org)
+    * makes payments
+
+---
+
+### 6. Lease Layer
+
+* **Lease Arrangement**
+
+  * lease_id
+  * unit_id (FK)
+  * tenant_id (FK)
+  * managed_by_user_id (FK → User, optional; must have a **UserRole** for this lease’s org)
+  * start_date
+  * end_date
+  * rent_amount
+  * deposit_amount
+  * billing_cycle
+  * status (active/terminated/expired)
+  * Relationships:
+
+    * links tenant + unit (**tenant.org_id** must match **unit → building → org**; see §3)
+    * generates invoices
+    * has services
+
+---
+
+### 7. Services Layer
+
+* **Service** (catalog entries are **per-org**)
+
+  * service_id
+  * org_id (FK)
+  * name (water, security, garbage, internet)
+  * billing_type (fixed/metered/usage-based)
+  * Relationships:
+
+    * belongs to **ORG**
+    * subscribed on leases (and optionally tied to units when you extend the model; see §7.2)
+
+* **Service Subscription**
+
+  * subscription_id
+  * lease_id (FK)
+  * service_id (FK)
+  * rate
+  * billing_cycle
+
+---
+
+### 8. Financial Layer
+
+#### Invoicing
+
+* **Invoice**
+
+  * invoice_id
+  * lease_id (FK)
+  * issue_date
+  * due_date
+  * total_amount
+  * status (paid/unpaid/partial)
+  * Relationships:
+
+    * has invoice items
+    * linked to payments
+
+* **Invoice Line Item**
+
+  * item_id
+  * invoice_id (FK)
+  * description (rent, water, etc.)
+  * amount
+
+---
+
+#### Adjustments
+
+* **Credit Note**
+
+  * credit_note_id
+  * invoice_id (FK)
+  * amount
+  * reason
+  * date
+
+---
+
+#### Payments
+
+* **Payment**
+
+  * payment_id
+  * org_id (FK) — same as **tenant.org_id** for this payment (denormalized for reporting and SaaS scoping)
+  * tenant_id (FK)
+  * lease_id (FK, optional) — denormalized “primary” lease for this payment; speeds **lease → payments** and support UIs (see §8)
+  * amount
+  * method (mobile_money, bank, cash)
+  * reference
+  * date
+  * Relationships:
+
+    * belongs to **ORG** (via org_id; must match tenant’s org)
+    * optionally points at **Lease** when unambiguous (rules in §3 and §8)
+    * allocated to invoices
+
+* **Payment Allocation**
+
+  * allocation_id
+  * payment_id (FK)
+  * invoice_id (FK)
+  * amount_applied
+
+---
+
+# 2) Key Relationships (Simplified)
+
+```
+ORG
+ ├── UserRole → User
+ ├── Landlord
+ ├── Tenant
+ └── Building
+       └── Unit
+            └── Lease Arrangement
+                  ├── Tenant
+                  ├── User (managed_by)
+                  ├── Service Subscription → Service
+                  ├── Invoice → Invoice Items
+                  │        └── Credit Notes
+                  └── Payments → Payment Allocations
+```
+
+---
+
+# 3) Model invariants (summary)
+
+These keep the graph consistent; enforce in migrations, checks, or application services.
+
+| Rule | Statement |
+|------|-----------|
+| **Landlord ↔ Building** | `landlord.org_id = building.org_id` for every building. |
+| **Lease ↔ Tenant ↔ Property** | `tenant.org_id` = `unit → building.org_id` for every lease. |
+| **managed_by** | If set, the user has a **UserRole** with `org_id` equal to that building’s org. |
+| **Payment** | `payment.org_id` = `tenant.org_id` for the linked tenant. |
+| **Payment.lease_id** | If set, every **PaymentAllocation**’s invoice must have `invoice.lease_id = payment.lease_id`. If unset, allocations may span multiple leases (same tenant); see §8. |
+| **Service subscription** | `service.org_id` = lease’s org (via unit → building). |
+| **Unit** | Unique `(building_id, unit_number)`. |
+| **UserRole** | Unique `(user_id, org_id)` (one membership row per user per org). |
+
+---
+
+# 4) ER Diagram (Textual)
+
+```
+[ORG] 1 ──── * [UserRole]
+
+[User] 1 ──── * [UserRole]
+
+[ORG] 1 ──── * [Tenant]
+
+[ORG] 1 ──── * [Landlord]
+
+[Landlord] 1 ──── * [Building]
+
+[Building] 1 ──── * [Unit]
+
+[Unit] 1 ──── * [Lease]
+
+[Tenant] 1 ──── * [Lease]
+
+[User] 1 ──── * [Lease]   (managed_by_user_id, optional)
+
+[ORG] 1 ──── * [Payment]
+
+[Lease] 1 ──── * [Payment]   (lease_id, optional FK)
+
+[Lease] 1 ──── * [Invoice]
+
+[Invoice] 1 ──── * [InvoiceItem]
+
+[Invoice] 1 ──── * [CreditNote]
+
+[Payment] * ──── * [Invoice]
+   (via PaymentAllocation)
+
+[Lease] 1 ──── * [ServiceSubscription]
+
+[ORG] 1 ──── * [Service]
+
+[Service] 1 ──── * [ServiceSubscription]
+```
+
+---
+
+# 5) Class Diagram (OOP Style)
+
+```plaintext
+class Org {
+  id
+  name
+  settings
+}
+
+class User {
+  id
+  name
+  email
+}
+
+class UserRole {
+  user_id
+  org_id
+  role
+}
+
+class Landlord {
+  id
+  org_id
+}
+
+class Building {
+  id
+  org_id
+  landlord_id
+}
+
+class Unit {
+  id
+  building_id
+}
+
+class Tenant {
+  id
+  org_id
+}
+
+class Lease {
+  id
+  tenant_id
+  unit_id
+  managed_by_user_id
+}
+
+class Service {
+  id
+  org_id
+}
+
+class ServiceSubscription {
+  lease_id
+  service_id
+}
+
+class Invoice {
+  id
+  lease_id
+}
+
+class InvoiceItem {
+  invoice_id
+}
+
+class CreditNote {
+  invoice_id
+}
+
+class Payment {
+  id
+  org_id
+  tenant_id
+  lease_id
+}
+
+class PaymentAllocation {
+  payment_id
+  invoice_id
+}
+```
+
+---
+
+# 6) Key Design Insights (Important)
+
+### 1. Lease is the core pivot
+
+Everything flows through **Lease Arrangement**:
+
+* tenancy
+* billing
+* services
+* revenue
+
+---
+
+### 2. Payments are many-to-many
+
+A single payment can:
+
+* pay multiple invoices
+* partially pay one invoice
+
+→ hence **PaymentAllocation**
+
+---
+
+### 3. Services are abstracted
+
+Avoid hardcoding utilities:
+
+* makes system extensible (e.g., add solar, parking, etc.)
+
+---
+
+### 4. Org multi-tenancy ready
+
+ORG enables:
+
+* SaaS PMS (multi-company)
+* **User** + **UserRole** for staff access and roles per org (not a separate “PM” entity)
+
+---
+
+### 5. Financial auditability
+
+Separate:
+
+* invoices
+* credit notes
+* payments
+
+→ ensures proper accounting trail
+
+---
+
+### 6. Invariants are explicit
+
+Cross-entity rules (org alignment, uniqueness, **managed_by**) are listed in **§3** so implementations do not scatter assumptions.
+
+---
+
+### 7. Reads vs normalized joins
+
+Reporting and dashboards often hit long join chains (**invoice → lease → unit → building**). **§8** names hot paths, suggested indexes, and **optional** `lease_id` / `org_id` on payments to avoid scanning **PaymentAllocation** for every lease-level view.
+
+---
+
+# 7) Recommendations (Next model decisions)
+
+### 1. Decided foundations (see §1 and §3)
+
+* **Tenant** is per-org (`org_id` on **Tenant**).
+* Staff are **User** + **UserRole**; **Lease** uses optional `managed_by_user_id` with org checks in §3.
+* **Landlord** / **Building** org alignment is in the §3 table; optionally drop redundant `building.org_id` and derive it from **Landlord** if you prefer a single source of truth.
+
+---
+
+### 2. Services beyond an active lease
+
+**Service Subscription** is lease-scoped. If utilities or contracts apply to **vacant units** or **common areas** without a lease, add either:
+
+* building- or unit-level service agreements, or
+* nullable `lease_id` on subscription with clear business rules.
+
+---
+
+### 3. Payments: reporting and reconciliation
+
+**Payment** includes `org_id` and optional `lease_id` (§1, §8). Consider a **payer** (name or FK) distinct from **tenant** when companies or guarantors pay.
+
+---
+
+### 4. Financial depth (when you need it)
+
+* **Tax/VAT** — line-level tax on **Invoice Line Item** (or header-level if jurisdiction allows).
+* **Deposits** — separate **deposit ledger** or distinct invoice/line types so refunds do not mix with rent in reports.
+* **Human references** — `invoice_number`, `lease_reference` (or external IDs) for integrations and support.
+
+---
+
+### 5. Unit status vs leases
+
+**Unit.status** (vacant/occupied/maintenance) can drift from **Lease** truth. Prefer:
+
+* deriving occupancy from active leases where possible, or
+* documenting sync rules (events, jobs) when status is stored.
+
+---
+
+### 6. Credit notes
+
+Multiple **Credit Note** rows per invoice is fine for partial credits over time. If audit needs line-level precision, add **Credit Note Line** linking to **Invoice Line Item**.
+
+---
+
+### 7. Diagram note
+
+**Payment** links to **Lease** in three ways: optional denormalized **`lease_id`** (§8), **tenant** (many leases per tenant), and **PaymentAllocation → Invoice → Lease**. Use **`lease_id`** when the payment applies to a single lease so list/filter queries avoid joining through allocations.
+
+---
+
+# 8) Query patterns and performance
+
+### 1. Typical hot paths (where joins hurt)
+
+| Access pattern | Naive path | Why it is costly |
+|----------------|------------|------------------|
+| Payments for one **lease** | `Payment` → `PaymentAllocation` → `Invoice` → `lease_id` | Two hops from payment; allocation table grows fast. |
+| Open **invoices** for an org | `Invoice` → `Lease` → `Unit` → `Building` → filter `org_id` | Long join chain per row. |
+| **Tenant** balance / ledger | `Payment` + allocations + invoices by `tenant_id` | Many rows; needs good indexes on `tenant_id`, `date`. |
+| Active **leases** for a **building** | `Lease` → `Unit` → `building_id` | Common dashboard query. |
+| Staff “my **leases**” | `Lease` where `managed_by_user_id` | Filter + optional date range. |
+| **ServiceSubscription** for billing run | By `lease_id` or “all active leases in org” | Batch jobs scan many leases. |
+
+### 2. Denormalization already in the model
+
+* **`payment.org_id`** — Filter payments by SaaS tenant without joining **Tenant**.
+* **`payment.lease_id` (optional)** — Store when the business case is “this payment belongs to one lease” (typical rent payment). Then: `WHERE lease_id = ? AND org_id = ?` is index-friendly. Clear or leave null when one payment settles invoices across multiple leases; invariant in §3.
+* **`invoice.lease_id`** — Already the anchor for billing; index `(lease_id, status, due_date)` for collections.
+
+### 3. Suggested indexes (relational DB)
+
+Apply per database; names are illustrative.
+
+| Table | Index | Helps |
+|-------|--------|--------|
+| **Payment** | `(org_id, date DESC)` | Org cash reports. |
+| **Payment** | `(tenant_id, date DESC)` | Tenant ledger. |
+| **Payment** | `(lease_id)` where `lease_id IS NOT NULL` | Lease payment history (partial index if supported). |
+| **PaymentAllocation** | `(invoice_id)`, `(payment_id)` | Both directions of the many-to-many. |
+| **Invoice** | `(lease_id, status)`, `(lease_id, due_date)` | Arrears and dunning. |
+| **Lease** | `(unit_id)`, `(tenant_id)`, `(managed_by_user_id)` | Property tree and staff views. |
+| **Unit** | `(building_id)` | Units in a building. |
+| **UserRole** | `(user_id, org_id)` | Unique + login-scoped role lookup. |
+
+### 4. Optional further denormalization (if metrics stay slow)
+
+* **`invoice.org_id`** — Redundant with `lease → unit → building` but avoids joins for org-scoped invoice lists (keep in sync with lease’s org).
+* **Materialized views** or nightly **rollups** for landlord P&L by building — only if OLTP joins remain too heavy at scale.
+
+### 5. ORM / API habits
+
+* Always scope by **`org_id`** in the query (`Payment`, `Invoice` via lease or denormalized org on invoice) to keep multi-tenant scans partition-friendly.
+* Prefer **keyset pagination** (`date`, `id`) over large `OFFSET` on payment and invoice lists.
+
+---

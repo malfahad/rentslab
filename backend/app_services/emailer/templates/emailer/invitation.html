@@ -1,0 +1,14 @@
+{% extends "emailer/base.html" %}
+{% block title %}Invitation — {{ site_name }}{% endblock %}
+{% block body %}
+<h1>You are invited</h1>
+<p><strong>{{ inviter_name }}</strong> invited you to join <strong>{{ org_name }}</strong> on {{ site_name }}.</p>
+{% if invitation_url %}
+<div class="btn-wrap">
+  <a class="btn" href="{{ invitation_url }}">Accept invitation</a>
+</div>
+<p class="muted"><a href="{{ invitation_url }}">{{ invitation_url }}</a></p>
+{% else %}
+<p class="muted">Use the link or code your administrator sent you to complete signup.</p>
+{% endif %}
+{% endblock %}

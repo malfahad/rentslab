@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --focus: #1e3a5f;
+}
+
+body {
+  @apply bg-surface-main text-[#1A1A1A] antialiased;
+}
+
+/* Visible focus for links and buttons */
+a:focus-visible,
+button:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-brand-navy;
+}
