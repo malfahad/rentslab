@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardListView } from "@/components/dashboard/main-view";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -29,7 +30,16 @@ function formatWhen(iso: string): string {
   }
 }
 
-export function PaymentsPageClient() {
+function parsePositiveInt(raw: string): number | undefined {
+  const t = raw.trim();
+  if (!t) return undefined;
+  const n = Number.parseInt(t, 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function PaymentsPageContent() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { orgReady, orgId } = useOrg();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -39,9 +49,26 @@ export function PaymentsPageClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const tenantFromUrl = searchParams.get("tenant") ?? "";
+  const leaseFromUrl = searchParams.get("lease") ?? "";
+  const unitFromUrl = searchParams.get("unit") ?? "";
+  const buildingFromUrl = searchParams.get("building") ?? "";
+
+  const scopeParams = useMemo(
+    () => ({
+      tenant: parsePositiveInt(tenantFromUrl),
+      lease: parsePositiveInt(leaseFromUrl),
+      lease__unit: parsePositiveInt(unitFromUrl),
+      lease__unit__building: parsePositiveInt(buildingFromUrl),
+    }),
+    [tenantFromUrl, leaseFromUrl, unitFromUrl, buildingFromUrl],
+  );
+
+  const scopeSignature = useMemo(() => JSON.stringify(scopeParams), [scopeParams]);
+
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, method]);
+  }, [debouncedSearch, method, scopeSignature]);
 
   const load = useCallback(async () => {
     if (orgId == null) return;
@@ -54,6 +81,10 @@ export function PaymentsPageClient() {
         search: debouncedSearch || undefined,
         method: method || undefined,
         ordering: "-payment_date",
+        tenant: scopeParams.tenant,
+        lease: scopeParams.lease,
+        lease__unit: scopeParams.lease__unit,
+        lease__unit__building: scopeParams.lease__unit__building,
       });
       setData(r);
     } catch (e) {
@@ -64,7 +95,7 @@ export function PaymentsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [orgId, page, debouncedSearch, method]);
+  }, [orgId, page, debouncedSearch, method, scopeParams]);
 
   useEffect(() => {
     if (!orgReady || orgId == null) return;
@@ -91,6 +122,27 @@ export function PaymentsPageClient() {
   const total = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / 24));
 
+  const hasScopeFilter =
+    tenantFromUrl.trim() !== "" ||
+    leaseFromUrl.trim() !== "" ||
+    unitFromUrl.trim() !== "" ||
+    buildingFromUrl.trim() !== "";
+
+  const scopeDescriptionParts: string[] = [];
+  if (tenantFromUrl.trim() !== "") {
+    scopeDescriptionParts.push(`tenant #${tenantFromUrl.trim()}`);
+  }
+  if (leaseFromUrl.trim() !== "") {
+    scopeDescriptionParts.push(`lease #${leaseFromUrl.trim()}`);
+  }
+  if (unitFromUrl.trim() !== "") {
+    scopeDescriptionParts.push(`unit #${unitFromUrl.trim()}`);
+  }
+  if (buildingFromUrl.trim() !== "") {
+    scopeDescriptionParts.push(`building #${buildingFromUrl.trim()}`);
+  }
+  const scopeDescription = scopeDescriptionParts.join(", ");
+
   return (
     <DashboardListView
       title="Payments"
@@ -106,6 +158,17 @@ export function PaymentsPageClient() {
       }
     >
       <div className="mx-auto max-w-content space-y-4">
+        {hasScopeFilter ? (
+          <p className="text-sm text-[#6B7280]">
+            Filtered to {scopeDescription}.{" "}
+            <Link
+              href={pathname}
+              className="font-medium text-brand-blue hover:underline"
+            >
+              Clear scope
+            </Link>
+          </p>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
           <label className="block min-w-[200px] max-w-md flex-1 text-sm">
             <span className="sr-only">Search</span>
@@ -215,5 +278,19 @@ export function PaymentsPageClient() {
         ) : null}
       </div>
     </DashboardListView>
+  );
+}
+
+export function PaymentsPageClient() {
+  return (
+    <Suspense
+      fallback={
+        <DashboardListView title="Payments" description="Loading…">
+          <div className="text-sm text-[#6B7280]">Loading…</div>
+        </DashboardListView>
+      }
+    >
+      <PaymentsPageContent />
+    </Suspense>
   );
 }

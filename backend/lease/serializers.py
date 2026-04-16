@@ -1,9 +1,13 @@
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from unit.models import Unit
 
 from .models import Lease
+
+# Ending a lease: soft-delete / stop billing (matches issue_invoices active-only rule).
+CLOSED_LIKE_STATUSES = frozenset({'closed', 'terminated'})
 
 
 class LeaseSerializer(serializers.ModelSerializer):
@@ -89,6 +93,19 @@ class LeaseSerializer(serializers.ModelSerializer):
             status = self.instance.status
         elif status is None and self.instance is None:
             status = 'active'
+
+        old_status = self.instance.status if self.instance is not None else None
+        new_status = status
+        if (
+            old_status == 'active'
+            and new_status in CLOSED_LIKE_STATUSES
+            and attrs.get('end_date') is None
+        ):
+            attrs['end_date'] = timezone.now().date()
+        elif self.instance is None and new_status in CLOSED_LIKE_STATUSES:
+            if attrs.get('end_date') is None:
+                attrs['end_date'] = timezone.now().date()
+
         if unit_id is not None and status == 'active':
             u = Unit.objects.filter(pk=unit_id).only('status').first()
             if u is not None and u.status == 'maintenance':

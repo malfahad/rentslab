@@ -8,6 +8,7 @@ import type { LeaseDto, LeaseUpdate } from "@/types/operations";
 
 const LEASE_STATUSES = [
   { value: "active", label: "Active" },
+  { value: "closed", label: "Closed" },
   { value: "terminated", label: "Terminated" },
   { value: "expired", label: "Expired" },
 ];

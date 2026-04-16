@@ -9,6 +9,8 @@ export function ConfirmDeleteDialog({
   onCancel,
   onConfirm,
   pending,
+  confirmActionLabel = "Delete",
+  pendingActionLabel = "Deleting…",
 }: {
   open: boolean;
   title: string;
@@ -16,6 +18,9 @@ export function ConfirmDeleteDialog({
   onCancel: () => void;
   onConfirm: () => void;
   pending?: boolean;
+  /** Primary button label when not pending (default: Delete). */
+  confirmActionLabel?: string;
+  pendingActionLabel?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -53,7 +58,7 @@ export function ConfirmDeleteDialog({
             disabled={pending}
             data-testid="confirm-delete"
           >
-            {pending ? "Deleting…" : "Delete"}
+            {pending ? pendingActionLabel : confirmActionLabel}
           </button>
         </div>
       </div>

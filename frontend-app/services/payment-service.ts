@@ -11,6 +11,8 @@ export type ListPaymentsParams = {
   tenant?: number;
   lease?: number;
   method?: string;
+  lease__unit?: number;
+  lease__unit__building?: number;
 };
 
 export async function listPayments(
@@ -27,6 +29,8 @@ export async function listPayments(
       tenant: options?.tenant,
       lease: options?.lease,
       method: options?.method,
+      lease__unit: options?.lease__unit,
+      lease__unit__building: options?.lease__unit__building,
     })}`,
   );
 }

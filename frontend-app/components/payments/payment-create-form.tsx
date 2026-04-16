@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -13,10 +13,10 @@ import {
 import { PortfolioFormShell } from "@/components/portfolio/portfolio-form-shell";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError } from "@/lib/api/errors";
-import { listAllInvoicesForTenant } from "@/services/invoice-service";
-import { listLeases } from "@/services/lease-service";
+import { getInvoice, listAllInvoicesForTenant } from "@/services/invoice-service";
+import { getLease, listLeases } from "@/services/lease-service";
 import { createPayment } from "@/services/payment-service";
-import { listTenants } from "@/services/tenant-service";
+import { getTenant, listTenants } from "@/services/tenant-service";
 import type { InvoiceDto } from "@/types/billing";
 import type { LeaseDto, TenantDto } from "@/types/operations";
 
@@ -58,8 +58,17 @@ function leaseDisplayLabel(l: LeaseDto): string {
   return b ? `${unit} · ${b}` : unit;
 }
 
+function parsePositiveInt(raw: string | null | undefined): number | undefined {
+  const t = (raw ?? "").trim();
+  if (!t) return undefined;
+  const n = Number.parseInt(t, 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export function PaymentCreateForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invoiceFromUrl = searchParams.get("invoice");
   const tenantListId = useId();
   const leaseListId = useId();
 
@@ -91,6 +100,8 @@ export function PaymentCreateForm() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [prefillInvoiceId, setPrefillInvoiceId] = useState<number | null>(null);
+  const prefillAppliedRef = useRef(false);
 
   const tenantWrapRef = useRef<HTMLDivElement>(null);
   const leaseWrapRef = useRef<HTMLDivElement>(null);
@@ -138,26 +149,32 @@ export function PaymentCreateForm() {
 
   const tid = selectedTenant?.id ?? null;
 
-  const loadLeasesAndInvoices = useCallback(async (tenantPk: number) => {
-    setLoadError(null);
-    try {
-      const [leaseRes, invs] = await Promise.all([
-        listLeases({ tenant: tenantPk, pageSize: 100, ordering: "-start_date" }),
-        listAllInvoicesForTenant(tenantPk, { status: "unpaid" }),
-      ]);
-      setLeases(leaseRes.results);
-      setInvoices(invs);
-      setAllocByInvoice({});
-      setSelectedLeaseId(null);
-      setLeaseQuery("");
-    } catch (e) {
-      setLeases([]);
-      setInvoices([]);
-      setLoadError(
-        e instanceof ApiError ? e.messageForUser : "Could not load lease data.",
-      );
-    }
-  }, []);
+  const loadLeasesAndInvoices = useCallback(
+    async (tenantPk: number) => {
+      setLoadError(null);
+      try {
+        const restrictToUnpaid = !invoiceFromUrl?.trim();
+        const [leaseRes, invs] = await Promise.all([
+          listLeases({ tenant: tenantPk, pageSize: 100, ordering: "-start_date" }),
+          listAllInvoicesForTenant(tenantPk, {
+            status: restrictToUnpaid ? "unpaid" : undefined,
+          }),
+        ]);
+        setLeases(leaseRes.results);
+        setInvoices(invs);
+        setAllocByInvoice({});
+        setSelectedLeaseId(null);
+        setLeaseQuery("");
+      } catch (e) {
+        setLeases([]);
+        setInvoices([]);
+        setLoadError(
+          e instanceof ApiError ? e.messageForUser : "Could not load lease data.",
+        );
+      }
+    },
+    [invoiceFromUrl],
+  );
 
   useEffect(() => {
     if (tid == null || !Number.isFinite(tid)) {
@@ -171,10 +188,55 @@ export function PaymentCreateForm() {
     void loadLeasesAndInvoices(tid);
   }, [tid, loadLeasesAndInvoices]);
 
+  useEffect(() => {
+    const invId = parsePositiveInt(invoiceFromUrl);
+    if (invId == null) {
+      setPrefillInvoiceId(null);
+      prefillAppliedRef.current = false;
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const inv = await getInvoice(invId);
+        const lease = await getLease(inv.lease);
+        const tenant = await getTenant(lease.tenant);
+        if (cancelled) return;
+        setSelectedTenant(tenant);
+        setSelectedLeaseId(inv.lease);
+        setPrefillInvoiceId(invId);
+        prefillAppliedRef.current = false;
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(
+            e instanceof ApiError
+              ? e.messageForUser
+              : "Could not load invoice for this payment.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invoiceFromUrl]);
+
   const visibleInvoices = useMemo(() => {
     if (selectedLeaseId == null) return invoices;
     return invoices.filter((inv) => inv.lease === selectedLeaseId);
   }, [invoices, selectedLeaseId]);
+
+  useEffect(() => {
+    if (prefillInvoiceId == null || prefillAppliedRef.current) return;
+    const inv = visibleInvoices.find((i) => i.id === prefillInvoiceId);
+    if (!inv) return;
+    prefillAppliedRef.current = true;
+    const out = inv.outstanding_amount?.trim() ?? "";
+    if (out) {
+      setAmount(out);
+      setAllocByInvoice((prev) => ({ ...prev, [inv.id]: out }));
+    }
+  }, [visibleInvoices, prefillInvoiceId]);
 
   const invoiceTotalById = useMemo(() => {
     const m = new Map<number, number>();

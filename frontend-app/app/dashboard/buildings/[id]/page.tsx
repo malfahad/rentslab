@@ -133,6 +133,24 @@ export default function BuildingDetailPage() {
               >
                 View units
               </Link>
+              <Link
+                href={`/dashboard/invoices?building=${item.id}`}
+                className="btn-secondary w-full"
+              >
+                Invoices
+              </Link>
+              <Link
+                href={`/dashboard/payments?building=${item.id}`}
+                className="btn-secondary w-full"
+              >
+                Payments
+              </Link>
+              <Link
+                href={`/dashboard/credit-notes?building=${item.id}`}
+                className="btn-secondary w-full"
+              >
+                Credit notes
+              </Link>
               <button
                 type="button"
                 className="btn-secondary w-full text-red-800 hover:bg-red-50"

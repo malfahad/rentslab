@@ -59,7 +59,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
             return f'{annotated:.2f}'
         total = obj.total_amount or Decimal('0.00')
         allocated = obj.payment_allocations.aggregate(s=Sum('amount_applied'))['s'] or Decimal('0.00')
-        outstanding = total - allocated
+        credited = obj.credit_notes.aggregate(s=Sum('amount'))['s'] or Decimal('0.00')
+        outstanding = total - allocated - credited
         if outstanding < 0:
             outstanding = Decimal('0.00')
         return f'{outstanding:.2f}'

@@ -10,4 +10,6 @@ class InvoiceFilter(django_filters.FilterSet):
             'status': ['exact'],
             'lease': ['exact'],
             'lease__tenant': ['exact'],
+            'lease__unit': ['exact'],
+            'lease__unit__building': ['exact'],
         }

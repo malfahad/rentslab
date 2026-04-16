@@ -41,6 +41,18 @@ class IssueInvoicesServiceTests(TestCase):
         self.assertEqual(out['created_count'], 0)
         self.assertIn(lease.pk, out['skipped_leases'])
 
+    def test_closed_lease_not_invoiced(self):
+        closed = create_lease(
+            start_date=date(2025, 1, 1),
+            billing_cycle='monthly',
+            rent_amount=Decimal('500.00'),
+            status='closed',
+            end_date=date(2025, 3, 1),
+        )
+        org = closed.unit.building.org
+        out = issue_invoices_for_org(org.pk, as_of=date(2025, 3, 31), dry_run=False)
+        self.assertEqual(out['created_count'], 0)
+
 
 class IssueInvoicesAPITests(DRFTestCase):
     base = '/api/v1/invoices/issue/'

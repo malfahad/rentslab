@@ -10,7 +10,13 @@ import { ApiError } from "@/lib/api/errors";
 import { listAllCreditNotesForInvoice } from "@/services/credit-note-service";
 import { getInvoice } from "@/services/invoice-service";
 import { listAllLineItemsForInvoice } from "@/services/invoice-line-item-service";
-import type { CreditNoteDto, InvoiceDto, InvoiceLineItemDto } from "@/types/billing";
+import { listAllPaymentAllocationsForInvoice } from "@/services/payment-allocation-service";
+import type {
+  CreditNoteDto,
+  InvoiceDto,
+  InvoiceLineItemDto,
+  PaymentAllocationDto,
+} from "@/types/billing";
 
 function addr(inv: InvoiceDto): string {
   return [
@@ -32,6 +38,9 @@ export default function InvoiceDetailPage() {
   const [inv, setInv] = useState<InvoiceDto | null>(null);
   const [lines, setLines] = useState<InvoiceLineItemDto[]>([]);
   const [credits, setCredits] = useState<CreditNoteDto[]>([]);
+  const [payAllocations, setPayAllocations] = useState<PaymentAllocationDto[]>(
+    [],
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +61,11 @@ export default function InvoiceDetailPage() {
       setInv(invoice);
       setLines(li);
       setCredits(cr);
+      try {
+        setPayAllocations(await listAllPaymentAllocationsForInvoice(id));
+      } catch {
+        setPayAllocations([]);
+      }
     } catch (e) {
       setLoadError(
         e instanceof ApiError ? e.messageForUser : "Could not load invoice.",
@@ -113,6 +127,18 @@ export default function InvoiceDetailPage() {
               className="btn-primary w-full"
             >
               View lease
+            </Link>
+            <Link
+              href={`/dashboard/payments/create?invoice=${inv.id}`}
+              className="btn-secondary w-full"
+            >
+              Add payment
+            </Link>
+            <Link
+              href={`/dashboard/credit-notes/create?invoice=${inv.id}`}
+              className="btn-secondary w-full"
+            >
+              Apply credit note
             </Link>
             <Link
               href={`/dashboard/credit-notes?invoice=${inv.id}`}
@@ -202,6 +228,63 @@ export default function InvoiceDetailPage() {
                           {row.service_name?.trim() || "—"}
                         </td>
                         <td className="px-3 py-2 text-right text-[#1A1A1A]">{row.amount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                Payments
+              </h2>
+              <Link
+                href={`/dashboard/payments/create?invoice=${inv.id}`}
+                className="text-sm font-medium text-brand-blue hover:text-brand-navy hover:underline"
+              >
+                Add payment
+              </Link>
+            </div>
+            {payAllocations.length === 0 ? (
+              <p className="mt-2 text-sm text-[#6B7280]">
+                No payments applied to this invoice yet.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[360px] text-left text-sm">
+                  <thead className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold text-[#374151]">
+                        Payment
+                      </th>
+                      <th className="px-3 py-2 text-right font-semibold text-[#374151]">
+                        Amount applied
+                      </th>
+                      <th className="px-3 py-2 font-semibold text-[#374151]"> </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F4F6]">
+                    {[...payAllocations]
+                      .sort((a, b) => b.id - a.id)
+                      .map((a) => (
+                      <tr key={a.id}>
+                        <td className="px-3 py-2 text-[#1A1A1A]">
+                          #{a.payment}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-[#1A1A1A]">
+                          {a.amount_applied}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Link
+                            href={`/dashboard/payments/${a.payment}`}
+                            className="font-medium text-brand-blue hover:underline"
+                          >
+                            View
+                          </Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

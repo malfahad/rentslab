@@ -8,4 +8,8 @@ class CreditNoteFilter(django_filters.FilterSet):
         model = CreditNote
         fields = {
             'invoice': ['exact'],
+            'invoice__lease': ['exact'],
+            'invoice__lease__tenant': ['exact'],
+            'invoice__lease__unit': ['exact'],
+            'invoice__lease__unit__building': ['exact'],
         }

@@ -474,13 +474,6 @@ export default function DashboardHomePage() {
     <DashboardListView
       title="Dashboard"
       description="Overview of occupancy, rent roll, and what needs attention."
-      actions={
-        <>
-          <button type="button" className="btn-secondary-sm">
-            Export
-          </button>
-        </>
-      }
     >
       <div className="mx-auto max-w-7xl space-y-6">
         {loadError ? <p className="text-sm text-red-800">{loadError}</p> : null}

@@ -118,10 +118,26 @@ export function CreditNoteCreateForm() {
   }, [debouncedQ, selectedInvoice]);
 
   const amountNum = parseDecimalInput(amount);
+  const outstandingMax = selectedInvoice
+    ? parseDecimalInput(selectedInvoice.outstanding_amount)
+    : null;
+  const amountExceedsOutstanding =
+    outstandingMax != null &&
+    amountNum != null &&
+    amountNum > outstandingMax + 0.000001;
+  const noOutstandingLeft =
+    selectedInvoice != null &&
+    outstandingMax != null &&
+    outstandingMax <= 0.000001;
+
   const canSubmit =
     selectedInvoice != null &&
+    !noOutstandingLeft &&
+    outstandingMax != null &&
+    outstandingMax > 0 &&
     amountNum != null &&
     amountNum > 0 &&
+    !amountExceedsOutstanding &&
     creditDate.trim() !== "" &&
     !pending;
 
@@ -136,6 +152,13 @@ export function CreditNoteCreateForm() {
       const pay = parseDecimalInput(amount);
       if (pay == null || pay <= 0) {
         setFormError("Enter a valid credit amount.");
+        return;
+      }
+      const cap = parseDecimalInput(selectedInvoice.outstanding_amount);
+      if (cap != null && pay > cap + 0.000001) {
+        setFormError(
+          `Credit amount cannot exceed outstanding balance (${selectedInvoice.outstanding_amount}).`,
+        );
         return;
       }
       setPending(true);
@@ -268,6 +291,13 @@ export function CreditNoteCreateForm() {
           ) : null}
         </div>
 
+        {noOutstandingLeft ? (
+          <p className="text-sm text-amber-800" role="status">
+            This invoice has no remaining balance to credit (outstanding is
+            zero).
+          </p>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
             <span className="font-medium text-[#374151]">Credit amount</span>
@@ -280,7 +310,18 @@ export function CreditNoteCreateForm() {
               className={inputClass}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              aria-invalid={amountExceedsOutstanding}
             />
+            {selectedInvoice != null && outstandingMax != null ? (
+              <p className="mt-1 text-xs text-[#6B7280]">
+                Maximum {selectedInvoice.outstanding_amount} (outstanding).
+                {amountExceedsOutstanding ? (
+                  <span className="ml-1 font-medium text-red-700">
+                    Amount exceeds outstanding.
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
           </label>
           <label className="block text-sm">
             <span className="font-medium text-[#374151]">Credit date</span>

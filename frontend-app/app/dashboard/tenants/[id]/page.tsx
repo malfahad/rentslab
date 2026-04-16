@@ -134,6 +134,24 @@ export default function TenantDetailPage() {
               >
                 Browse units
               </Link>
+              <Link
+                href={`/dashboard/invoices?tenant=${id}`}
+                className="btn-secondary w-full"
+              >
+                Invoices
+              </Link>
+              <Link
+                href={`/dashboard/payments?tenant=${id}`}
+                className="btn-secondary w-full"
+              >
+                Payments
+              </Link>
+              <Link
+                href={`/dashboard/credit-notes?tenant=${id}`}
+                className="btn-secondary w-full"
+              >
+                Credit notes
+              </Link>
               <button
                 type="button"
                 className="btn-secondary w-full text-red-800 hover:bg-red-50"

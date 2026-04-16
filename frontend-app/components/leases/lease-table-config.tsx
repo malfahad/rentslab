@@ -14,7 +14,7 @@ function statusCell(status: string) {
   const cls =
     s === "active"
       ? "text-[#2E7D32]"
-      : s === "terminated"
+      : s === "closed" || s === "terminated"
         ? "text-red-700"
         : "text-[#6B7280]";
   return <span className={cls}>{status}</span>;

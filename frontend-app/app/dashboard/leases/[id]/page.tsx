@@ -11,7 +11,7 @@ import { RENT_CURRENCIES } from "@/lib/constants/currencies";
 import { useOrg } from "@/contexts/org-context";
 import { ApiError } from "@/lib/api/errors";
 import { getBuilding } from "@/services/building-service";
-import { deleteLease, getLease } from "@/services/lease-service";
+import { closeLease, getLease } from "@/services/lease-service";
 import { listOrgServices } from "@/services/catalog-service";
 import {
   createServiceSubscription,
@@ -99,15 +99,15 @@ export default function LeaseDetailPage() {
     if (c) setSubCurrency(c);
   }, [subServiceId, services]);
 
-  async function handleDeleteLease() {
+  async function handleCloseLease() {
     if (!Number.isFinite(id)) return;
     setPending(true);
     try {
-      await deleteLease(id);
+      const updated = await closeLease(id);
+      setLease(updated);
       setDeleteOpen(false);
-      router.push("/dashboard/leases");
     } catch (e) {
-      alert(e instanceof ApiError ? e.messageForUser : "Delete failed");
+      alert(e instanceof ApiError ? e.messageForUser : "Could not close lease");
     } finally {
       setPending(false);
     }
@@ -227,23 +227,45 @@ export default function LeaseDetailPage() {
               >
                 Other leases for this unit
               </Link>
+              <Link
+                href={`/dashboard/invoices?lease=${id}`}
+                className="btn-secondary w-full"
+              >
+                Invoices
+              </Link>
+              <Link
+                href={`/dashboard/payments?lease=${id}`}
+                className="btn-secondary w-full"
+              >
+                Payments
+              </Link>
+              <Link
+                href={`/dashboard/credit-notes?lease=${id}`}
+                className="btn-secondary w-full"
+              >
+                Credit notes
+              </Link>
               <Link href="/dashboard/services" className="btn-secondary w-full">
                 Services catalog
               </Link>
-              <button
-                type="button"
-                className="btn-secondary w-full"
-                onClick={() => setSubModalOpen(true)}
-              >
-                Add service subscription
-              </button>
-              <button
-                type="button"
-                className="btn-secondary w-full text-red-800 hover:bg-red-50"
-                onClick={() => setDeleteOpen(true)}
-              >
-                Delete lease
-              </button>
+              {lease.status === "active" ? (
+                <button
+                  type="button"
+                  className="btn-secondary w-full"
+                  onClick={() => setSubModalOpen(true)}
+                >
+                  Add service subscription
+                </button>
+              ) : null}
+              {lease.status === "active" ? (
+                <button
+                  type="button"
+                  className="btn-secondary w-full text-red-800 hover:bg-red-50"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Close lease
+                </button>
+              ) : null}
             </>
           ) : null
         }
@@ -330,13 +352,15 @@ export default function LeaseDetailPage() {
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
                   Service subscriptions
                 </h2>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-brand-blue hover:text-brand-navy"
-                  onClick={() => setSubModalOpen(true)}
-                >
-                  Add
-                </button>
+                {lease.status === "active" ? (
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-brand-blue hover:text-brand-navy"
+                    onClick={() => setSubModalOpen(true)}
+                  >
+                    Add
+                  </button>
+                ) : null}
               </div>
               {subscriptions.length === 0 ? (
                 <p className="mt-3 text-sm text-[#6B7280]">
@@ -357,13 +381,15 @@ export default function LeaseDetailPage() {
                           {formatMoney(s.rate, s.currency)} · {s.billing_cycle}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        className="text-sm font-medium text-red-700 hover:underline"
-                        onClick={() => setSubDelete(s)}
-                      >
-                        Remove
-                      </button>
+                      {lease.status === "active" ? (
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-red-700 hover:underline"
+                          onClick={() => setSubDelete(s)}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -375,11 +401,13 @@ export default function LeaseDetailPage() {
 
       <ConfirmDeleteDialog
         open={deleteOpen}
-        title="Delete lease arrangement?"
-        message="Invoices, payments, or subscriptions linked to this lease may prevent deletion."
+        title="Close this lease?"
+        message="The lease will be marked closed with an end date of today. It stays on file for invoices and payments history; automated rent issuance will stop."
         onCancel={() => setDeleteOpen(false)}
-        onConfirm={handleDeleteLease}
+        onConfirm={handleCloseLease}
         pending={pending}
+        confirmActionLabel="Close lease"
+        pendingActionLabel="Closing…"
       />
 
       <ConfirmDeleteDialog

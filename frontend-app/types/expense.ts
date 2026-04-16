@@ -26,6 +26,10 @@ export type ExpenseDto = {
   id: number;
   org: number;
   expense_category: number;
+  /** Read-only from API when present. */
+  expense_category_name?: string;
+  /** Read-only from API when present. */
+  expense_category_code?: string;
   expense_number: string;
   expense_date: string;
   amount: string;
@@ -33,10 +37,20 @@ export type ExpenseDto = {
   description: string;
   status: string;
   building: number | null;
+  /** Read-only from API when present. */
+  building_name?: string;
   unit: number | null;
+  /** Read-only from API when present. */
+  unit_label?: string;
   lease: number | null;
+  /** Read-only from API when present. */
+  lease_label?: string;
   vendor: number | null;
+  /** Read-only from API when present. */
+  vendor_name?: string;
   job_order: number | null;
+  /** Read-only from API when present. */
+  job_order_label?: string;
   payment_method: string;
   reference: string;
   receipt_url: string;
@@ -48,11 +62,14 @@ export type ExpenseDto = {
 
 /** PATCH /expenses/:id/ — partial update. */
 export type ExpenseUpdate = Partial<{
+  expense_category: number;
+  expense_date: string;
+  amount: string;
+  description: string;
   status: string;
   paid_at: string | null;
   expense_number: string;
   currency_code: string;
-  description: string;
   payment_method: string;
   reference: string;
   receipt_url: string;

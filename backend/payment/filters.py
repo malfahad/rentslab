@@ -10,4 +10,6 @@ class PaymentFilter(django_filters.FilterSet):
             'tenant': ['exact'],
             'lease': ['exact'],
             'method': ['exact'],
+            'lease__unit': ['exact'],
+            'lease__unit__building': ['exact'],
         }

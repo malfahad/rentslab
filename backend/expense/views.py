@@ -21,5 +21,21 @@ class ExpenseViewSet(OrgScopedViewSetMixin, viewsets.ModelViewSet):
     ordering = ['-expense_date', 'id']
     user_filter_kind = 'expense'
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.select_related(
+            'expense_category',
+            'building',
+            'unit',
+            'unit__building',
+            'lease',
+            'lease__tenant',
+            'lease__unit',
+            'lease__unit__building',
+            'vendor',
+            'job_order',
+            'org',
+        )
+
     def _base_queryset_for_org(self, org_id: int):
         return Expense.objects.filter(org_id=org_id).order_by('-expense_date', 'id')

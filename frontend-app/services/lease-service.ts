@@ -75,6 +75,13 @@ export async function updateLease(
   });
 }
 
-export async function deleteLease(id: number): Promise<void> {
-  await apiRequestAuthed<unknown>(`/leases/${id}/`, { method: "DELETE" });
+/** Soft-close: sets status to closed and end date (default: today). */
+export async function closeLease(
+  id: number,
+  body?: { closing_date?: string },
+): Promise<LeaseDto> {
+  return apiRequestAuthed<LeaseDto>(`/leases/${id}/close/`, {
+    method: "POST",
+    body: body ?? {},
+  });
 }

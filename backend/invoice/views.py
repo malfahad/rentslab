@@ -1,4 +1,16 @@
-from django.db.models import Case, DecimalField, ExpressionWrapper, F, Sum, Value, When
+from decimal import Decimal
+
+from django.db.models import (
+    Case,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    OuterRef,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
@@ -11,6 +23,9 @@ from access.pagination import StandardPagination
 from access.permissions import IsOrgAdminOrgHeader, RequiresOrgContext
 from access.services import get_org_id_from_request
 from access.view_mixins import OrgScopedViewSetMixin
+
+from credit_note.models import CreditNote
+from payment_allocation.models import PaymentAllocation
 
 from .filters import InvoiceFilter
 from .issue_serializers import IssueInvoicesRequestSerializer
@@ -37,6 +52,7 @@ class InvoiceViewSet(OrgScopedViewSetMixin, viewsets.ModelViewSet):
         'issue_date',
         'due_date',
         'total_amount',
+        'outstanding_amount',
         'status',
         'invoice_number',
         'created_at',
@@ -46,24 +62,35 @@ class InvoiceViewSet(OrgScopedViewSetMixin, viewsets.ModelViewSet):
     user_filter_kind = 'invoice'
 
     def _with_balance_annotations(self, qs):
+        dec = DecimalField(max_digits=14, decimal_places=2)
+        zero = Value(Decimal('0'), output_field=dec)
+        paid_sub = (
+            PaymentAllocation.objects.filter(invoice_id=OuterRef('pk'))
+            .values('invoice_id')
+            .annotate(total=Sum('amount_applied'))
+            .values('total')[:1]
+        )
+        credit_sub = (
+            CreditNote.objects.filter(invoice_id=OuterRef('pk'))
+            .values('invoice_id')
+            .annotate(total=Sum('amount'))
+            .values('total')[:1]
+        )
         qs = qs.annotate(
-            allocated_amount=Coalesce(
-                Sum('payment_allocations__amount_applied'),
-                Value(0),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
-            ),
+            allocated_amount=Coalesce(Subquery(paid_sub, output_field=dec), zero, output_field=dec),
+            credit_note_total=Coalesce(Subquery(credit_sub, output_field=dec), zero, output_field=dec),
         )
         return qs.annotate(
             outstanding_amount=Case(
                 When(
-                    allocated_amount__gte=F('total_amount'),
-                    then=Value(0),
+                    total_amount__lte=F('allocated_amount') + F('credit_note_total'),
+                    then=zero,
                 ),
                 default=ExpressionWrapper(
-                    F('total_amount') - F('allocated_amount'),
-                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                    F('total_amount') - F('allocated_amount') - F('credit_note_total'),
+                    output_field=dec,
                 ),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
+                output_field=dec,
             ),
         )
 

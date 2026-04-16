@@ -40,7 +40,7 @@ import { useResetPageOnFilters } from "@/hooks/use-reset-page-on-filters";
 import { useOrg } from "@/contexts/org-context";
 import { ApiError } from "@/lib/api/errors";
 import { urlSearchParamsEqual } from "@/lib/url-search-params";
-import { deleteLease, listLeases } from "@/services/lease-service";
+import { closeLease, listLeases } from "@/services/lease-service";
 import type { PaginatedResponse } from "@/types/api";
 import type { LeaseDto } from "@/types/operations";
 
@@ -52,6 +52,7 @@ const DEBOUNCE_MS = 350;
 const LEASE_STATUSES = [
   { value: "", label: "Any status" },
   { value: "active", label: "Active" },
+  { value: "closed", label: "Closed" },
   { value: "terminated", label: "Terminated" },
   { value: "expired", label: "Expired" },
 ];
@@ -73,7 +74,7 @@ function statusBadge(status: string) {
   const cls =
     s === "active"
       ? "text-[#2E7D32]"
-      : s === "terminated"
+      : s === "closed" || s === "terminated"
         ? "text-red-700"
         : "text-[#6B7280]";
   return <span className={`text-sm font-medium ${cls}`}>{status}</span>;
@@ -323,15 +324,15 @@ function LeasesPageContent() {
     setVisibleCols(next);
   }
 
-  async function handleDelete() {
+  async function handleCloseLease() {
     if (!deleteTarget) return;
     setPending(true);
     try {
-      await deleteLease(deleteTarget.id);
+      await closeLease(deleteTarget.id);
       setDeleteTarget(null);
       bumpList();
     } catch (e) {
-      alert(e instanceof ApiError ? e.messageForUser : "Delete failed");
+      alert(e instanceof ApiError ? e.messageForUser : "Could not close lease");
     } finally {
       setPending(false);
     }
@@ -558,14 +559,18 @@ function LeasesPageContent() {
                     >
                       Edit
                     </Link>
-                    <span className="text-[#D1D5DB]"> · </span>
-                    <button
-                      type="button"
-                      className="text-sm font-medium text-red-700 hover:underline"
-                      onClick={() => setDeleteTarget(row)}
-                    >
-                      Delete
-                    </button>
+                    {row.status === "active" ? (
+                      <>
+                        <span className="text-[#D1D5DB]"> · </span>
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-red-700 hover:underline"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          Close lease
+                        </button>
+                      </>
+                    ) : null}
                   </>
                 )}
               />
@@ -664,13 +669,15 @@ function LeasesPageContent() {
                         >
                           Edit
                         </Link>
-                        <button
-                          type="button"
-                          className="font-medium text-red-700 hover:underline"
-                          onClick={() => setDeleteTarget(row)}
-                        >
-                          Delete
-                        </button>
+                        {row.status === "active" ? (
+                          <button
+                            type="button"
+                            className="font-medium text-red-700 hover:underline"
+                            onClick={() => setDeleteTarget(row)}
+                          >
+                            Close lease
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -694,11 +701,13 @@ function LeasesPageContent() {
 
       <ConfirmDeleteDialog
         open={deleteTarget != null}
-        title="Delete lease arrangement?"
-        message={`Remove the lease for “${deleteTarget?.tenant_name?.trim() || `tenant #${deleteTarget?.tenant}`}”? Invoices and payments linked to this lease may block deletion.`}
+        title="Close this lease?"
+        message={`Mark the lease for “${deleteTarget?.tenant_name?.trim() || `tenant #${deleteTarget?.tenant}`}” as closed? The lease stays on file with an end date of today; automated rent invoices will stop.`}
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onConfirm={handleCloseLease}
         pending={pending}
+        confirmActionLabel="Close lease"
+        pendingActionLabel="Closing…"
       />
     </>
   );

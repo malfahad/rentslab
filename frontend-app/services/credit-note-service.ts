@@ -9,6 +9,10 @@ export type ListCreditNotesParams = {
   search?: string;
   ordering?: string;
   invoice?: number;
+  invoice__lease?: number;
+  invoice__lease__tenant?: number;
+  invoice__lease__unit?: number;
+  invoice__lease__unit__building?: number;
 };
 
 export async function listCreditNotes(
@@ -23,6 +27,10 @@ export async function listCreditNotes(
       search: options?.search,
       ordering: options?.ordering,
       invoice: options?.invoice,
+      invoice__lease: options?.invoice__lease,
+      invoice__lease__tenant: options?.invoice__lease__tenant,
+      invoice__lease__unit: options?.invoice__lease__unit,
+      invoice__lease__unit__building: options?.invoice__lease__unit__building,
     })}`,
   );
 }

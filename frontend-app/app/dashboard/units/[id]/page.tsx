@@ -127,6 +127,24 @@ export default function UnitDetailPage() {
               >
                 View leases for this unit
               </Link>
+              <Link
+                href={`/dashboard/invoices?unit=${id}`}
+                className="btn-secondary w-full"
+              >
+                Invoices
+              </Link>
+              <Link
+                href={`/dashboard/payments?unit=${id}`}
+                className="btn-secondary w-full"
+              >
+                Payments
+              </Link>
+              <Link
+                href={`/dashboard/credit-notes?unit=${id}`}
+                className="btn-secondary w-full"
+              >
+                Credit notes
+              </Link>
               <button
                 type="button"
                 className="btn-secondary w-full text-red-800 hover:bg-red-50"

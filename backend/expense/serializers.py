@@ -19,12 +19,28 @@ class ExpenseSerializer(serializers.ModelSerializer):
     reference = serializers.CharField(required=False, allow_blank=True, max_length=255)
     receipt_url = serializers.CharField(required=False, allow_blank=True, max_length=1024)
 
+    expense_category_name = serializers.CharField(
+        source='expense_category.name',
+        read_only=True,
+    )
+    expense_category_code = serializers.CharField(
+        source='expense_category.code',
+        read_only=True,
+    )
+    building_name = serializers.SerializerMethodField()
+    unit_label = serializers.SerializerMethodField()
+    lease_label = serializers.SerializerMethodField()
+    vendor_name = serializers.SerializerMethodField()
+    job_order_label = serializers.SerializerMethodField()
+
     class Meta:
         model = Expense
         fields = [
             'id',
             'org',
             'expense_category',
+            'expense_category_name',
+            'expense_category_code',
             'expense_number',
             'expense_date',
             'amount',
@@ -32,10 +48,15 @@ class ExpenseSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'building',
+            'building_name',
             'unit',
+            'unit_label',
             'lease',
+            'lease_label',
             'vendor',
+            'vendor_name',
             'job_order',
+            'job_order_label',
             'payment_method',
             'reference',
             'receipt_url',
@@ -44,6 +65,61 @@ class ExpenseSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_building_name(self, obj):
+        if obj.building_id is None:
+            return ''
+        return obj.building.name or ''
+
+    def get_unit_label(self, obj):
+        if obj.unit_id is None:
+            return ''
+        u = obj.unit
+        bname = ''
+        if u.building_id and getattr(u, 'building', None):
+            bname = (u.building.name or '').strip()
+        unum = (u.unit_number or '').strip()
+        if bname and unum:
+            return f'{bname} — {unum}'
+        return bname or unum or f'Unit #{u.pk}'
+
+    def get_lease_label(self, obj):
+        if obj.lease_id is None:
+            return ''
+        lease = obj.lease
+        tenant = ''
+        if getattr(lease, 'tenant', None):
+            tenant = (lease.tenant.name or '').strip()
+        u = getattr(lease, 'unit', None)
+        if u is None:
+            return tenant or ''
+        bname = ''
+        if u.building_id and getattr(u, 'building', None):
+            bname = (u.building.name or '').strip()
+        unum = (u.unit_number or '').strip()
+        unit_part = ''
+        if bname and unum:
+            unit_part = f'{bname} — {unum}'
+        else:
+            unit_part = bname or unum or f'Unit #{u.pk}'
+        if tenant and unit_part:
+            return f'{tenant} · {unit_part}'
+        return tenant or unit_part
+
+    def get_vendor_name(self, obj):
+        if obj.vendor_id is None:
+            return ''
+        return (obj.vendor.name or '').strip()
+
+    def get_job_order_label(self, obj):
+        if obj.job_order_id is None:
+            return ''
+        jo = obj.job_order
+        num = (jo.job_number or '').strip()
+        title = (jo.title or '').strip()
+        if num and title:
+            return f'{num} · {title}'
+        return num or title or f'Job #{jo.pk}'
 
     def validate_org(self, org):
         request = self.context.get('request')

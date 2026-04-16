@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardListView } from "@/components/dashboard/main-view";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -12,9 +12,20 @@ import { listCreditNotes } from "@/services/credit-note-service";
 import type { PaginatedResponse } from "@/types/api";
 import type { CreditNoteDto } from "@/types/billing";
 
+function parsePositiveInt(raw: string): number | undefined {
+  const t = raw.trim();
+  if (!t) return undefined;
+  const n = Number.parseInt(t, 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export function CreditNotesPageClient() {
   const searchParams = useSearchParams();
   const invoiceFromUrl = searchParams.get("invoice") ?? "";
+  const tenantFromUrl = searchParams.get("tenant") ?? "";
+  const leaseFromUrl = searchParams.get("lease") ?? "";
+  const unitFromUrl = searchParams.get("unit") ?? "";
+  const buildingFromUrl = searchParams.get("building") ?? "";
   const { orgReady, orgId } = useOrg();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -23,9 +34,21 @@ export function CreditNotesPageClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const scopeParams = useMemo(
+    () => ({
+      invoice__lease__tenant: parsePositiveInt(tenantFromUrl),
+      invoice__lease: parsePositiveInt(leaseFromUrl),
+      invoice__lease__unit: parsePositiveInt(unitFromUrl),
+      invoice__lease__unit__building: parsePositiveInt(buildingFromUrl),
+    }),
+    [tenantFromUrl, leaseFromUrl, unitFromUrl, buildingFromUrl],
+  );
+
+  const scopeSignature = useMemo(() => JSON.stringify(scopeParams), [scopeParams]);
+
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, invoiceFromUrl]);
+  }, [debouncedSearch, invoiceFromUrl, scopeSignature]);
 
   const load = useCallback(async () => {
     if (orgId == null) return;
@@ -39,6 +62,10 @@ export function CreditNotesPageClient() {
         pageSize: 24,
         search: debouncedSearch || undefined,
         invoice: Number.isFinite(invNum) ? invNum : undefined,
+        invoice__lease: scopeParams.invoice__lease,
+        invoice__lease__tenant: scopeParams.invoice__lease__tenant,
+        invoice__lease__unit: scopeParams.invoice__lease__unit,
+        invoice__lease__unit__building: scopeParams.invoice__lease__unit__building,
         ordering: "-credit_date",
       });
       setData(r);
@@ -50,7 +77,7 @@ export function CreditNotesPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [orgId, page, debouncedSearch, invoiceFromUrl]);
+  }, [orgId, page, debouncedSearch, invoiceFromUrl, scopeParams]);
 
   useEffect(() => {
     if (!orgReady || orgId == null) return;
@@ -77,6 +104,30 @@ export function CreditNotesPageClient() {
   const total = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / 24));
 
+  const hasScopeFilter =
+    tenantFromUrl.trim() !== "" ||
+    leaseFromUrl.trim() !== "" ||
+    unitFromUrl.trim() !== "" ||
+    buildingFromUrl.trim() !== "";
+
+  const filterDescriptionParts: string[] = [];
+  if (invoiceFromUrl.trim() !== "") {
+    filterDescriptionParts.push(`invoice #${invoiceFromUrl.trim()}`);
+  }
+  if (tenantFromUrl.trim() !== "") {
+    filterDescriptionParts.push(`tenant #${tenantFromUrl.trim()}`);
+  }
+  if (leaseFromUrl.trim() !== "") {
+    filterDescriptionParts.push(`lease #${leaseFromUrl.trim()}`);
+  }
+  if (unitFromUrl.trim() !== "") {
+    filterDescriptionParts.push(`unit #${unitFromUrl.trim()}`);
+  }
+  if (buildingFromUrl.trim() !== "") {
+    filterDescriptionParts.push(`building #${buildingFromUrl.trim()}`);
+  }
+  const filterDescription = filterDescriptionParts.join(", ");
+
   return (
     <DashboardListView
       title="Credit notes"
@@ -96,11 +147,11 @@ export function CreditNotesPageClient() {
       }
     >
       <div className="mx-auto max-w-content space-y-4">
-        {invoiceFromUrl ? (
+        {invoiceFromUrl.trim() !== "" || hasScopeFilter ? (
           <p className="text-sm text-[#6B7280]">
-            Filtered to invoice #{invoiceFromUrl}.{" "}
+            Filtered to {filterDescription}.{" "}
             <Link href="/dashboard/credit-notes" className="font-medium text-brand-blue hover:underline">
-              Clear filter
+              Clear filters
             </Link>
           </p>
         ) : null}

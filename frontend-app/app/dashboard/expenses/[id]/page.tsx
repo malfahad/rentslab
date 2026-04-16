@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { DashboardDetailView } from "@/components/dashboard/main-view";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { useOrg } from "@/contexts/org-context";
@@ -12,7 +12,10 @@ import type { ExpenseDto } from "@/types/expense";
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso + (iso.includes("T") ? "" : "T12:00:00")).toLocaleDateString();
+    return new Date(iso + (iso.includes("T") ? "" : "T12:00:00")).toLocaleDateString(
+      undefined,
+      { dateStyle: "long" },
+    );
   } catch {
     return iso;
   }
@@ -27,10 +30,44 @@ function formatWhen(iso: string | null): string {
   }
 }
 
+function statusBadgeClass(s: string): string {
+  const t = s.trim().toLowerCase();
+  if (t === "paid") {
+    return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
+  }
+  if (t === "approved") {
+    return "bg-blue-50 text-blue-900 ring-1 ring-blue-200";
+  }
+  if (t === "draft") {
+    return "bg-slate-50 text-slate-800 ring-1 ring-slate-200";
+  }
+  if (t === "void") {
+    return "bg-red-50 text-red-900 ring-1 ring-red-200";
+  }
+  return "bg-[#F3F4F6] text-[#374151] ring-1 ring-[#E5E7EB]";
+}
+
 type StatusKey = "draft" | "approved" | "paid" | "void" | string;
 
 function normalizeStatus(s: string): StatusKey {
   return s.trim().toLowerCase();
+}
+
+function sectionTitle(text: string) {
+  return (
+    <h2 className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+      {text}
+    </h2>
+  );
+}
+
+function dlRow(label: string, value: ReactNode) {
+  return (
+    <div>
+      <dt className="text-[#6B7280]">{label}</dt>
+      <dd className="mt-0.5 font-medium text-[#1A1A1A]">{value}</dd>
+    </div>
+  );
 }
 
 export default function ExpenseDetailPage() {
@@ -140,6 +177,12 @@ export default function ExpenseDetailPage() {
   const suggestedActions =
     ex && !loading ? (
       <>
+        <Link
+          href={`/dashboard/expenses/${ex.id}/edit`}
+          className="btn-primary w-full"
+        >
+          Edit expense
+        </Link>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
             Status
@@ -263,10 +306,31 @@ export default function ExpenseDetailPage() {
                 View unit
               </Link>
             ) : null}
+            {ex.vendor != null ? (
+              <Link
+                href={`/dashboard/vendors/${ex.vendor}`}
+                className="btn-secondary block w-full text-center"
+              >
+                View vendor
+              </Link>
+            ) : null}
+            {ex.job_order != null ? (
+              <Link
+                href={`/dashboard/job-orders/${ex.job_order}`}
+                className="btn-secondary block w-full text-center"
+              >
+                View job order
+              </Link>
+            ) : null}
           </div>
         </div>
       </>
     ) : null;
+
+  const amountDisplay =
+    ex != null
+      ? `${ex.amount}${ex.currency_code?.trim() ? ` ${ex.currency_code.trim()}` : ""}`
+      : "";
 
   return (
     <DashboardDetailView
@@ -277,7 +341,7 @@ export default function ExpenseDetailPage() {
         loading
           ? "Loading…"
           : ex
-            ? `${formatDate(ex.expense_date)} · ${ex.amount} · ${ex.status}`
+            ? `${formatDate(ex.expense_date)} · ${amountDisplay}`
             : undefined
       }
       suggestedActions={suggestedActions}
@@ -286,127 +350,213 @@ export default function ExpenseDetailPage() {
         <p className="text-sm text-red-800">{loadError}</p>
       ) : null}
       {!loadError && ex ? (
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-medium uppercase text-[#6B7280]">
-              Description
-            </dt>
-            <dd className="mt-0.5 text-[#1A1A1A]">{ex.description}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase text-[#6B7280]">
-              Category
-            </dt>
-            <dd className="mt-0.5 text-[#1A1A1A]">#{ex.expense_category}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase text-[#6B7280]">
-              Amount
-            </dt>
-            <dd className="mt-0.5 font-medium text-[#1A1A1A]">{ex.amount}</dd>
-          </div>
-          {ex.currency_code?.trim() ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Currency
-              </dt>
-              <dd className="mt-0.5 text-[#1A1A1A]">{ex.currency_code}</dd>
+        <div className="space-y-6">
+          <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+            {sectionTitle("Summary")}
+            <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-semibold tabular-nums text-brand-navy">
+                  {amountDisplay || ex.amount}
+                </p>
+                {ex.expense_number?.trim() ? (
+                  <p className="mt-1 text-sm text-[#6B7280]">
+                    {ex.expense_number.trim()}
+                  </p>
+                ) : null}
+              </div>
+              <span
+                className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusBadgeClass(ex.status)}`}
+              >
+                {ex.status}
+              </span>
             </div>
-          ) : null}
-          <div>
-            <dt className="text-xs font-medium uppercase text-[#6B7280]">
-              Status
-            </dt>
-            <dd className="mt-0.5 capitalize text-[#1A1A1A]">{ex.status}</dd>
-          </div>
-          {ex.building != null ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Building
-              </dt>
-              <dd className="mt-0.5">
-                <Link
-                  href={`/dashboard/buildings/${ex.building}`}
-                  className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
-                >
-                  View building #{ex.building}
-                </Link>
-              </dd>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              {dlRow("Expense date", formatDate(ex.expense_date))}
+              {dlRow(
+                "Organization",
+                <span className="font-mono text-[#374151]">#{ex.org}</span>,
+              )}
+            </dl>
+            <div className="mt-4 border-t border-[#F3F4F6] pt-4">
+              <p className="text-xs font-medium uppercase text-[#6B7280]">
+                Description
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#1A1A1A]">
+                {ex.description?.trim() || "—"}
+              </p>
             </div>
-          ) : null}
-          {ex.unit != null ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Unit
-              </dt>
-              <dd className="mt-0.5">
-                <Link
-                  href={`/dashboard/units/${ex.unit}`}
-                  className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
-                >
-                  View unit #{ex.unit}
-                </Link>
-              </dd>
-            </div>
-          ) : null}
-          {ex.vendor != null ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Vendor
-              </dt>
-              <dd className="mt-0.5 text-[#1A1A1A]">#{ex.vendor}</dd>
-            </div>
-          ) : null}
-          {ex.job_order != null ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Job order
-              </dt>
-              <dd className="mt-0.5 text-[#1A1A1A]">#{ex.job_order}</dd>
-            </div>
-          ) : null}
-          {ex.payment_method?.trim() ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Payment method
-              </dt>
-              <dd className="mt-0.5 capitalize text-[#1A1A1A]">
-                {ex.payment_method}
-              </dd>
-            </div>
-          ) : null}
-          {ex.reference?.trim() ? (
-            <div>
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Reference
-              </dt>
-              <dd className="mt-0.5 text-[#1A1A1A]">{ex.reference}</dd>
-            </div>
-          ) : null}
-          {ex.receipt_url?.trim() ? (
-            <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-[#6B7280]">
-                Receipt
-              </dt>
-              <dd className="mt-0.5">
-                <a
-                  href={ex.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="break-all font-medium text-brand-blue hover:text-brand-navy hover:underline"
-                >
-                  {ex.receipt_url}
-                </a>
-              </dd>
-            </div>
-          ) : null}
-          <div>
-            <dt className="text-xs font-medium uppercase text-[#6B7280]">
-              Paid at
-            </dt>
-            <dd className="mt-0.5 text-[#6B7280]">{formatWhen(ex.paid_at)}</dd>
-          </div>
-        </dl>
+          </section>
+
+          <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+            {sectionTitle("Classification")}
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              {dlRow(
+                "Category",
+                <span>
+                  {ex.expense_category_name?.trim() ||
+                    `Category #${ex.expense_category}`}
+                  {ex.expense_category_code?.trim() ? (
+                    <span className="ml-2 font-mono text-[#6B7280]">
+                      ({ex.expense_category_code.trim()})
+                    </span>
+                  ) : null}
+                </span>,
+              )}
+              {dlRow(
+                "Category ID",
+                <span className="font-mono text-[#374151]">
+                  #{ex.expense_category}
+                </span>,
+              )}
+            </dl>
+          </section>
+
+          <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+            {sectionTitle("Location & relationships")}
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              {dlRow(
+                "Building",
+                ex.building != null ? (
+                  <Link
+                    href={`/dashboard/buildings/${ex.building}`}
+                    className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
+                  >
+                    {ex.building_name?.trim() || `Building #${ex.building}`}
+                  </Link>
+                ) : (
+                  "—"
+                ),
+              )}
+              {ex.building != null
+                ? dlRow(
+                    "Building ID",
+                    <span className="font-mono text-[#374151]">
+                      #{ex.building}
+                    </span>,
+                  )
+                : null}
+              {ex.unit != null
+                ? dlRow(
+                    "Unit",
+                    <span>
+                      <Link
+                        href={`/dashboard/units/${ex.unit}`}
+                        className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
+                      >
+                        {ex.unit_label?.trim() || `Unit #${ex.unit}`}
+                      </Link>
+                      <span className="ml-2 font-mono text-xs text-[#9CA3AF]">
+                        #{ex.unit}
+                      </span>
+                    </span>,
+                  )
+                : null}
+              {ex.lease != null
+                ? dlRow(
+                    "Lease",
+                    <span>
+                      <Link
+                        href={`/dashboard/leases/${ex.lease}`}
+                        className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
+                      >
+                        {ex.lease_label?.trim() || `Lease #${ex.lease}`}
+                      </Link>
+                      <span className="ml-2 font-mono text-xs text-[#9CA3AF]">
+                        #{ex.lease}
+                      </span>
+                    </span>,
+                  )
+                : null}
+              {ex.vendor != null
+                ? dlRow(
+                    "Vendor",
+                    <span>
+                      <Link
+                        href={`/dashboard/vendors/${ex.vendor}`}
+                        className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
+                      >
+                        {ex.vendor_name?.trim() || `Vendor #${ex.vendor}`}
+                      </Link>
+                      <span className="ml-2 font-mono text-xs text-[#9CA3AF]">
+                        #{ex.vendor}
+                      </span>
+                    </span>,
+                  )
+                : null}
+              {ex.job_order != null
+                ? dlRow(
+                    "Job order",
+                    <span>
+                      <Link
+                        href={`/dashboard/job-orders/${ex.job_order}`}
+                        className="font-medium text-brand-blue hover:text-brand-navy hover:underline"
+                      >
+                        {ex.job_order_label?.trim() ||
+                          `Job order #${ex.job_order}`}
+                      </Link>
+                      <span className="ml-2 font-mono text-xs text-[#9CA3AF]">
+                        #{ex.job_order}
+                      </span>
+                    </span>,
+                  )
+                : null}
+            </dl>
+          </section>
+
+          <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+            {sectionTitle("Payment & documentation")}
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              {ex.payment_method?.trim()
+                ? dlRow(
+                    "Payment method",
+                    <span className="capitalize">{ex.payment_method}</span>,
+                  )
+                : dlRow("Payment method", "—")}
+              {ex.reference?.trim()
+                ? dlRow("Reference", ex.reference.trim())
+                : dlRow("Reference", "—")}
+              {ex.receipt_url?.trim() ? (
+                <div className="sm:col-span-2">
+                  <dt className="text-[#6B7280]">Receipt</dt>
+                  <dd className="mt-0.5">
+                    <a
+                      href={ex.receipt_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all font-medium text-brand-blue hover:text-brand-navy hover:underline"
+                    >
+                      Open receipt link
+                    </a>
+                    <p className="mt-1 break-all font-mono text-xs text-[#6B7280]">
+                      {ex.receipt_url}
+                    </p>
+                  </dd>
+                </div>
+              ) : (
+                dlRow("Receipt", "—")
+              )}
+              {dlRow("Paid at", formatWhen(ex.paid_at))}
+            </dl>
+          </section>
+
+          <section className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+            {sectionTitle("Record")}
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              {dlRow(
+                "Approved by",
+                ex.approved_by != null ? (
+                  <span className="font-mono text-[#374151]">
+                    User #{ex.approved_by}
+                  </span>
+                ) : (
+                  "—"
+                ),
+              )}
+              {dlRow("Created", formatWhen(ex.created_at))}
+              {dlRow("Updated", formatWhen(ex.updated_at))}
+            </dl>
+          </section>
+        </div>
       ) : null}
     </DashboardDetailView>
   );

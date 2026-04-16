@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { PaymentCreateForm } from "@/components/payments/payment-create-form";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { useOrg } from "@/contexts/org-context";
@@ -23,5 +24,15 @@ export default function PaymentCreatePage() {
     );
   }
 
-  return <PaymentCreateForm />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-0 flex-1 flex-col p-4 text-sm text-[#6B7280]">
+          Loading…
+        </div>
+      }
+    >
+      <PaymentCreateForm />
+    </Suspense>
+  );
 }

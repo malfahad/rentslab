@@ -12,6 +12,8 @@ export type ListInvoicesParams = {
   lease?: number;
   /** Filter invoices whose lease belongs to this tenant */
   lease__tenant?: number;
+  lease__unit?: number;
+  lease__unit__building?: number;
 };
 
 export async function listInvoices(
@@ -28,6 +30,8 @@ export async function listInvoices(
       status: options?.status,
       lease: options?.lease,
       lease__tenant: options?.lease__tenant,
+      lease__unit: options?.lease__unit,
+      lease__unit__building: options?.lease__unit__building,
     })}`,
   );
 }
