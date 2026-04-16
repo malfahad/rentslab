@@ -141,6 +141,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     label: "Portfolio",
     defaultOpen: true,
     items: [
+      { href: "/dashboard", label: "Dashboard", icon: IconChart },
       { href: "/dashboard/landlords", label: "Landlords", icon: IconLandlord },
       { href: "/dashboard/buildings", label: "Buildings", icon: IconBuilding },
       { href: "/dashboard/units", label: "Units", icon: IconGrid },

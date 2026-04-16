@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+from django.db.models import Sum
 from rest_framework import serializers
 
 from .models import Invoice
@@ -6,6 +9,7 @@ from .models import Invoice
 class InvoiceSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
     lease_label = serializers.SerializerMethodField()
+    outstanding_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -19,6 +23,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             'issue_date',
             'due_date',
             'total_amount',
+            'outstanding_amount',
             'status',
             'bill_to_name',
             'bill_to_address_line1',
@@ -47,3 +52,14 @@ class InvoiceSerializer(serializers.ModelSerializer):
         if bname and unum:
             return f'{bname} — {unum}'
         return bname or unum or f'Unit #{u.pk}'
+
+    def get_outstanding_amount(self, obj):
+        annotated = getattr(obj, 'outstanding_amount', None)
+        if annotated is not None:
+            return f'{annotated:.2f}'
+        total = obj.total_amount or Decimal('0.00')
+        allocated = obj.payment_allocations.aggregate(s=Sum('amount_applied'))['s'] or Decimal('0.00')
+        outstanding = total - allocated
+        if outstanding < 0:
+            outstanding = Decimal('0.00')
+        return f'{outstanding:.2f}'

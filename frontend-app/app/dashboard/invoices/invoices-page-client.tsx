@@ -222,7 +222,8 @@ export function InvoicesPageClient() {
                   <th className="px-4 py-3 font-semibold text-[#374151]">Unit</th>
                   <th className="px-4 py-3 font-semibold text-[#374151]">Issue</th>
                   <th className="px-4 py-3 font-semibold text-[#374151]">Due</th>
-                  <th className="px-4 py-3 font-semibold text-[#374151]">Amount</th>
+                  <th className="px-4 py-3 font-semibold text-[#374151]">Total</th>
+                  <th className="px-4 py-3 font-semibold text-[#374151]">Outstanding</th>
                   <th className="px-4 py-3 font-semibold text-[#374151]">Status</th>
                   <th className="px-4 py-3 font-semibold text-[#374151]"> </th>
                 </tr>
@@ -242,6 +243,9 @@ export function InvoicesPageClient() {
                     <td className="px-4 py-3 text-[#6B7280]">{inv.issue_date}</td>
                     <td className="px-4 py-3 text-[#6B7280]">{inv.due_date}</td>
                     <td className="px-4 py-3 text-[#1A1A1A]">{inv.total_amount}</td>
+                    <td className="px-4 py-3 font-medium text-[#1A1A1A]">
+                      {inv.outstanding_amount}
+                    </td>
                     <td className="px-4 py-3 capitalize text-[#6B7280]">{inv.status}</td>
                     <td className="px-4 py-3 text-right">
                       <Link

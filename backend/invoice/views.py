@@ -1,3 +1,5 @@
+from django.db.models import Case, DecimalField, ExpressionWrapper, F, Sum, Value, When
+from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -43,6 +45,28 @@ class InvoiceViewSet(OrgScopedViewSetMixin, viewsets.ModelViewSet):
     ordering = ['-issue_date', 'id']
     user_filter_kind = 'invoice'
 
+    def _with_balance_annotations(self, qs):
+        qs = qs.annotate(
+            allocated_amount=Coalesce(
+                Sum('payment_allocations__amount_applied'),
+                Value(0),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
+        )
+        return qs.annotate(
+            outstanding_amount=Case(
+                When(
+                    allocated_amount__gte=F('total_amount'),
+                    then=Value(0),
+                ),
+                default=ExpressionWrapper(
+                    F('total_amount') - F('allocated_amount'),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
+        )
+
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.select_related(
@@ -54,7 +78,7 @@ class InvoiceViewSet(OrgScopedViewSetMixin, viewsets.ModelViewSet):
         )
 
     def _base_queryset_for_org(self, org_id: int):
-        return Invoice.objects.filter(org_id=org_id).order_by('id')
+        return self._with_balance_annotations(Invoice.objects.filter(org_id=org_id)).order_by('id')
 
     def get_permissions(self):
         if getattr(self, 'action', None) == 'issue':

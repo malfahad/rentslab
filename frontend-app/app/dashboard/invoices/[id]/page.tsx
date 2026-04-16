@@ -143,6 +143,10 @@ export default function InvoiceDetailPage() {
                 <dd className="font-medium text-[#1A1A1A]">{inv.total_amount}</dd>
               </div>
               <div>
+                <dt className="text-[#6B7280]">Outstanding</dt>
+                <dd className="font-medium text-[#1A1A1A]">{inv.outstanding_amount}</dd>
+              </div>
+              <div>
                 <dt className="text-[#6B7280]">Issue date</dt>
                 <dd className="text-[#1A1A1A]">{inv.issue_date}</dd>
               </div>

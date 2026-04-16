@@ -10,6 +10,7 @@ export type InvoiceDto = {
   issue_date: string;
   due_date: string;
   total_amount: string;
+  outstanding_amount: string;
   status: string;
   bill_to_name: string;
   bill_to_address_line1: string;
