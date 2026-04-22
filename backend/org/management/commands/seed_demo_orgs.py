@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils.text import slugify
 
 from access.constants import ROLE_ADMIN, ROLE_ORG_MEMBER
@@ -23,6 +24,33 @@ from unit.models import Unit
 from user_role.models import UserRole
 
 User = get_user_model()
+
+
+def _sync_postgresql_pk_sequences() -> None:
+    """If SERIAL/IDENTITY sequences lag behind MAX(pk), inserts fail with duplicate pkey."""
+    if connection.vendor != "postgresql":
+        return
+    with connection.cursor() as cursor:
+        for model in apps.get_models():
+            opts = model._meta
+            if opts.abstract or not opts.managed:
+                continue
+            pk = opts.pk
+            if pk.get_internal_type() not in ("AutoField", "BigAutoField"):
+                continue
+            table, column = opts.db_table, pk.column
+            cursor.execute("SELECT pg_get_serial_sequence(%s, %s)", [table, column])
+            row = cursor.fetchone()
+            if not row or not row[0]:
+                continue
+            seq = row[0]
+            q_table = connection.ops.quote_name(table)
+            q_column = connection.ops.quote_name(column)
+            cursor.execute(
+                f"SELECT setval(%s::regclass, COALESCE((SELECT MAX({q_column}) FROM {q_table}), 1), "
+                f"(SELECT MAX({q_column}) FROM {q_table}) IS NOT NULL)",
+                [seq],
+            )
 
 
 @dataclass(frozen=True)
@@ -279,6 +307,10 @@ class Command(BaseCommand):
         config = options["config"]
         password = options["password"]
         replace = options["replace"]
+
+        _sync_postgresql_pk_sequences()
+        if int(options.get("verbosity", 1)) >= 2:
+            self.stdout.write("Synced PostgreSQL primary-key sequences before seeding.")
 
         runs = ["small", "medium", "large"] if config == "all" else [config]
         city_order = ["kampala", "nairobi", "kigali"]
