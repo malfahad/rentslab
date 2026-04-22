@@ -52,8 +52,108 @@ def yearly_period(year: int) -> tuple[date, date]:
     return date(year, 1, 1), date(year, 12, 31)
 
 
+def preferred_mode_for_org(org: Org) -> str:
+    """
+    Resolve billing mode preference:
+    1) org.settings["license_mode"] when valid
+    2) most recent existing cycle mode
+    3) monthly default
+    """
+    settings = org.settings if isinstance(org.settings, dict) else {}
+    raw_mode = settings.get('license_mode')
+    if raw_mode in {LicensePayment.MODE_MONTHLY, LicensePayment.MODE_YEARLY}:
+        return raw_mode
+    latest = (
+        LicensePayment.objects.filter(org_id=org.id)
+        .order_by('-period_start', '-id')
+        .only('mode')
+        .first()
+    )
+    if latest is not None:
+        return latest.mode
+    return LicensePayment.MODE_MONTHLY
+
+
+def ensure_dynamic_cycles_for_org(org: Org) -> int:
+    """
+    Backfill and maintain cycles from registration date up to one upcoming cycle.
+    Existing rows are preserved; only missing cycle keys are created.
+    """
+    mode = preferred_mode_for_org(org)
+    units = current_org_units_count(org.id)
+    today = date.today()
+    registered_on = org.created_at.date()
+    created = 0
+
+    if mode == LicensePayment.MODE_YEARLY:
+        start_year = registered_on.year
+        end_year = today.year + 1  # keep one upcoming yearly cycle
+        for year in range(start_year, end_year + 1):
+            start, end = yearly_period(year)
+            status = _status_for_period(start, end, today)
+            _, was_created = LicensePayment.objects.get_or_create(
+                org_id=org.id,
+                mode=LicensePayment.MODE_YEARLY,
+                cycle_year=year,
+                cycle_month=None,
+                defaults={
+                    'period_start': start,
+                    'period_end': end,
+                    'status': status,
+                    'units_count': units,
+                    'unit_price': YEARLY_RATE,
+                    'amount_due': compute_amount_due(units, YEARLY_RATE),
+                },
+            )
+            created += int(was_created)
+        return created
+
+    # Monthly default
+    cursor = date(registered_on.year, registered_on.month, 1)
+    last_target = date(today.year, today.month, 1)
+    if today.month == 12:
+        last_target = date(today.year + 1, 1, 1)
+    else:
+        last_target = date(today.year, today.month + 1, 1)
+
+    while cursor <= last_target:
+        year, month = cursor.year, cursor.month
+        start, end = monthly_period(year, month)
+        status = _status_for_period(start, end, today)
+        _, was_created = LicensePayment.objects.get_or_create(
+            org_id=org.id,
+            mode=LicensePayment.MODE_MONTHLY,
+            cycle_year=year,
+            cycle_month=month,
+            defaults={
+                'period_start': start,
+                'period_end': end,
+                'status': status,
+                'units_count': units,
+                'unit_price': MONTHLY_RATE,
+                'amount_due': compute_amount_due(units, MONTHLY_RATE),
+            },
+        )
+        created += int(was_created)
+        if month == 12:
+            cursor = date(year + 1, 1, 1)
+        else:
+            cursor = date(year, month + 1, 1)
+    return created
+
+
+def _status_for_period(start: date, end: date, today: date) -> str:
+    if start <= today <= end:
+        return LicensePayment.STATUS_DUE
+    if start > today:
+        return LicensePayment.STATUS_UPCOMING
+    return LicensePayment.STATUS_PAID
+
+
 def license_summary_payload(org_id: int) -> dict:
     org = Org.objects.get(pk=org_id)
+    ensure_dynamic_cycles_for_org(org)
+    sync_org_license_unit_counts(org.id)
     registered_on = org.created_at.date()
     today = date.today()
 
@@ -78,6 +178,7 @@ def license_summary_payload(org_id: int) -> dict:
             'monthly_per_unit': str(MONTHLY_RATE),
             'yearly_per_unit': str(YEARLY_RATE),
         },
+        'mode': preferred_mode_for_org(org),
         'units_count': current_units,
         'credit_balance': str(latest.credit_balance if latest else Decimal('0.00')),
         'upcoming': _serialize_cycle(upcoming),
