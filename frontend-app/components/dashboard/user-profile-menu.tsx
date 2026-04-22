@@ -68,20 +68,20 @@ export function UserProfileMenu() {
           data-testid="user-profile-menu"
         >
           <Link
+            href="/dashboard/settings"
+            className="block px-3 py-2 text-sm text-[#374151] hover:bg-[#F9FAFB]"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            Settings
+          </Link>
+          <Link
             href="/dashboard/settings/profile"
             className="block px-3 py-2 text-sm text-[#374151] hover:bg-[#F9FAFB]"
             role="menuitem"
             onClick={() => setOpen(false)}
           >
             Profile
-          </Link>
-          <Link
-            href="/dashboard/settings/organization"
-            className="block px-3 py-2 text-sm text-[#374151] hover:bg-[#F9FAFB]"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-          >
-            Organization
           </Link>
           <Link
             href="/dashboard/settings/notifications"

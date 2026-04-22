@@ -53,6 +53,14 @@ export function LoginForm({ onSubmit, error, pending }: LoginFormProps) {
           placeholder="••••••••"
           className="h-11 rounded-lg border border-[#D1D5DB] px-3 text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:border-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
         />
+        <span className="mt-1 text-right">
+          <Link
+            className="text-xs font-medium text-brand-navy underline decoration-brand-navy/30 underline-offset-2 hover:decoration-brand-navy"
+            href="/forgot-password"
+          >
+            Forgot password?
+          </Link>
+        </span>
       </label>
 
       {error ? (

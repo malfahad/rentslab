@@ -1,10 +1,6 @@
-import { ModulePlaceholder } from "@/components/dashboard/module-placeholder";
+import { redirect } from "next/navigation";
 
+/** Legacy route: full settings hub lives at `/dashboard/settings`. */
 export default function OrganizationSettingsPage() {
-  return (
-    <ModulePlaceholder
-      title="Organization"
-      description="Org profile, billing context, and defaults."
-    />
-  );
+  redirect("/dashboard/settings?tab=organization");
 }

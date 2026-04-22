@@ -1,10 +1,14 @@
 import type {
   ActivateAccountRequest,
   ActivateAccountSuccessResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordSuccessResponse,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
   RegisterSuccessResponse,
+  ResetPasswordRequest,
+  ResetPasswordSuccessResponse,
   SessionUser,
   UserDto,
 } from "@/types/auth";
@@ -32,6 +36,24 @@ export async function activateAccount(
   input: ActivateAccountRequest,
 ): Promise<ActivateAccountSuccessResponse> {
   return apiRequest<ActivateAccountSuccessResponse>("/auth/activate-account/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function forgotPassword(
+  input: ForgotPasswordRequest,
+): Promise<ForgotPasswordSuccessResponse> {
+  return apiRequest<ForgotPasswordSuccessResponse>("/auth/forgot-password/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function resetPassword(
+  input: ResetPasswordRequest,
+): Promise<ResetPasswordSuccessResponse> {
+  return apiRequest<ResetPasswordSuccessResponse>("/auth/reset-password/", {
     method: "POST",
     body: input,
   });

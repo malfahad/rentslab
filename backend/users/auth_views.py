@@ -99,6 +99,7 @@ class ForgotPasswordView(APIView):
         email = serializer.validated_data['email'].lower()
         user = User.objects.filter(email__iexact=email).first()
         if user and not user.deleted_at:
+            print(f"Sending password reset email to {user.email}")
             _send_password_reset_email(user)
         resp = {'detail': 'If an account exists for this email, we sent reset instructions.'}
         if settings.DEBUG and user and not user.deleted_at:

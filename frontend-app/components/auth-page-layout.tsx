@@ -19,7 +19,7 @@ export function AuthPageLayout({
   return (
     <div className="flex min-h-screen flex-col bg-surface-main lg:flex-row">
       <aside className="flex flex-col gap-8 border-b border-[#E5E7EB] bg-gradient-to-b from-white via-white to-[#F1F4F7] px-6 py-10 lg:w-[44%] lg:max-w-xl lg:justify-center lg:border-b-0 lg:border-r lg:px-12 lg:py-16">
-        <div className="mx-auto w-full max-w-[300px] shrink-0 lg:mx-0">
+        <div className="mx-auto hidden w-full max-w-[300px] shrink-0 md:block lg:mx-0">
           {illustration}
         </div>
         <div className="mx-auto max-w-md text-center lg:mx-0 lg:text-left">

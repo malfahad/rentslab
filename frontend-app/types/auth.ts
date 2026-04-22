@@ -44,6 +44,24 @@ export type ActivateAccountSuccessResponse = {
   detail: string;
 };
 
+export type ForgotPasswordRequest = {
+  email: string;
+};
+
+export type ForgotPasswordSuccessResponse = {
+  detail: string;
+};
+
+export type ResetPasswordRequest = {
+  uid: string;
+  token: string;
+  new_password: string;
+};
+
+export type ResetPasswordSuccessResponse = {
+  detail: string;
+};
+
 /** Minimal user fields stored client-side after login. */
 export type SessionUser = {
   id: number;

@@ -7,14 +7,20 @@ from pathlib import Path
 import os
 
 from corsheaders.defaults import default_headers
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR.parent / '.env')
 
-SECRET_KEY = 'django-insecure-=&lgjf&5dx*_4b)05(kw^@qihv9u+swnw-82$t@k6q_jg$3f%w'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
 
-DEBUG = True
+DEBUG = os.getenv('DEBUG', '1').strip().lower() in {'1', 'true', 'yes', 'on'}
 
-ALLOWED_HOSTS: list[str] = []
+ALLOWED_HOSTS: list[str] = [
+    host.strip()
+    for host in os.getenv('ALLOWED_HOSTS', '').split(',')
+    if host.strip()
+]
 
 INSTALLED_APPS = [
     'corsheaders',
@@ -48,6 +54,7 @@ INSTALLED_APPS = [
     'expense_category',
     'job_order',
     'expense',
+    'reports',
 ]
 
 MIDDLEWARE = [
@@ -83,8 +90,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME', 'rentslab'),
+        'USER': os.getenv('DB_USER', 'rentslab'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'rentslab'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5422'),
     }
 }
 
@@ -122,23 +133,41 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
 }
 
-# Browser clients (Next.js dev, Playwright) call the API from other origins when DEBUG.
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOWED_ORIGINS: list[str] = []
+# Browser clients (Next.js dev, Playwright) call the API from other origins.
+# Keep CORS behavior fully env-driven for both DEBUG and non-DEBUG modes.
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', '0').strip().lower() in {
+    '1',
+    'true',
+    'yes',
+    'on',
+}
+CORS_ALLOWED_ORIGINS: list[str] = [
+    origin.strip()
+    for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+    if origin.strip()
+]
 
 # Org-scoped API requests send X-Org-ID; preflight must allow it (not in default_headers).
 CORS_ALLOW_HEADERS = (*default_headers, "x-org-id")
 
-DEFAULT_FROM_EMAIL = 'noreply@rentslab.com'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@rentslab.com')
+EMAIL_BACKEND = (
+    'django.core.mail.backends.console.EmailBackend'
+    if DEBUG
+    else 'django.core.mail.backends.smtp.EmailBackend'
+)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '25'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', '0').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 # Transactional email branding (app_services.emailer)
-SITE_NAME = 'RentSlab'
-SUPPORT_EMAIL = 'support@rentslab.com'
+SITE_NAME = os.getenv('SITE_NAME', 'RentSlab')
+SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'support@rentslab.com')
 # Optional absolute origin for auth links in emails, e.g. https://app.example.com
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3003')
 
 # New orgs created on self-service registration (users.signals)
-DEFAULT_NEW_ORG_TYPE = 'property_manager'
+DEFAULT_NEW_ORG_TYPE = os.getenv('DEFAULT_NEW_ORG_TYPE', 'property_manager')

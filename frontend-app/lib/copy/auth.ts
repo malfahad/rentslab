@@ -32,5 +32,23 @@ export const COPY = {
   activateErrorPrimaryCta: "Try signing in",
   activateErrorSecondaryCta: "Create a new account",
 
+  forgotTitle: "Forgot your password?",
+  forgotSubtitle:
+    "Enter your account email and we will send you a password reset link.",
+  forgotSuccessTitle: "Check your inbox",
+  forgotSuccessBody:
+    "If an account exists for that email, a password reset link has been sent.",
+
+  resetTitle: "Set a new password",
+  resetSubtitle:
+    "Choose a new password for your account. You can sign in right after reset.",
+  resetLoadingBody: "Validating your reset link...",
+  resetSuccessTitle: "Password updated",
+  resetSuccessBody: "Your password has been reset. You can sign in now.",
+  resetErrorTitle: "We couldn't reset your password",
+  resetMissingTitle: "This reset link looks incomplete",
+  resetMissingSubtitle:
+    "Open the full link from your email or paste the complete URL into your browser.",
+
   homeRedirect: "Taking you to your workspace…",
 } as const;
