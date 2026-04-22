@@ -1,5 +1,5 @@
 /** Default Django origin when `NEXT_PUBLIC_API_ORIGIN` is unset (no trailing slash). */
-export const DEFAULT_API_ORIGIN = "http://127.0.0.1:8000";
+export const DEFAULT_API_ORIGIN = "http://127.0.0.1:8002";
 
 /** API version prefix under the Django host (see `config/urls.py`). */
 export const API_V1_PREFIX = "/api/v1";
