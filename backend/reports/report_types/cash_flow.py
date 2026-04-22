@@ -10,13 +10,14 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from django.db.models import Q, Sum
+from django.db.models import Q
 
 from expense.models import Expense
 from org.models import Org
 from payment.models import Payment
 
 from .base import decimal_str
+from .currency_utils import convert_to_default
 from .period import parse_report_period
 
 SLUG = 'cash-flow'
@@ -32,15 +33,20 @@ def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) 
         payment_date__date__gte=start,
         payment_date__date__lte=end,
     )
-    cash_in_total = payments_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    cash_in_total = Decimal('0')
+    cash_in_by_method_totals: dict[str, Decimal] = {}
+    for p in payments_qs:
+        amt = p.amount or Decimal('0')
+        cash_in_total += amt
+        method = p.method or 'unknown'
+        cash_in_by_method_totals[method] = cash_in_by_method_totals.get(method, Decimal('0')) + amt
 
     cash_in_by_method: list[dict[str, str]] = []
-    for row in payments_qs.values('method').annotate(total=Sum('amount')):
-        method = row.get('method') or 'unknown'
+    for method, total in cash_in_by_method_totals.items():
         cash_in_by_method.append(
             {
                 'method': method,
-                'amount': decimal_str(row['total'] or Decimal('0')),
+                'amount': decimal_str(total),
             }
         )
     cash_in_by_method.sort(key=lambda x: x['method'])
@@ -61,17 +67,22 @@ def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) 
     )
     expense_out_qs = Expense.objects.filter(org_id=org_id).filter(
         paid_filter | legacy_paid_filter
-    ).exclude(status='draft')
-
-    cash_out_total = expense_out_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    ).exclude(status='draft').select_related('expense_category')
+    cash_out_total = Decimal('0')
 
     cash_out_by_category: list[dict[str, str]] = []
-    for row in expense_out_qs.values('expense_category__name').annotate(total=Sum('amount')):
-        name = row.get('expense_category__name') or 'Uncategorized'
+    by_category_totals: dict[str, Decimal] = {}
+    for exp in expense_out_qs:
+        name = (exp.expense_category.name if exp.expense_category_id else 'Uncategorized') or 'Uncategorized'
+        src_currency = ((exp.currency_code or default_currency)).upper()
+        converted = convert_to_default(exp.amount or Decimal('0'), src_currency, default_currency)
+        by_category_totals[name] = by_category_totals.get(name, Decimal('0')) + converted
+        cash_out_total += converted
+    for name, total in by_category_totals.items():
         cash_out_by_category.append(
             {
                 'category': name,
-                'amount': decimal_str(row['total'] or Decimal('0')),
+                'amount': decimal_str(total),
             }
         )
     cash_out_by_category.sort(key=lambda x: x['category'])

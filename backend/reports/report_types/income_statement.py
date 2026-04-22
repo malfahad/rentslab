@@ -11,8 +11,6 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any
 
-from django.db.models import Sum
-
 from credit_note.models import CreditNote
 from expense.models import Expense
 from invoice.models import Invoice
@@ -20,6 +18,7 @@ from invoice_line_item.models import InvoiceLineItem
 from org.models import Org
 
 from .base import decimal_str
+from .currency_utils import convert_to_default
 from .period import parse_report_period
 
 SLUG = 'income-statement'
@@ -30,45 +29,65 @@ def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) 
     org = Org.objects.filter(pk=org_id).only('default_currency').first()
     default_currency = ((org.default_currency if org else 'KES') or 'KES').upper()
 
-    invoices_agg = Invoice.objects.filter(
+    invoices_qs = Invoice.objects.filter(
         org_id=org_id,
         issue_date__gte=start,
         issue_date__lte=end,
-    ).aggregate(total=Sum('total_amount'))
-    invoices_total = invoices_agg['total'] or Decimal('0')
-
-    invoice_count = Invoice.objects.filter(
-        org_id=org_id,
-        issue_date__gte=start,
-        issue_date__lte=end,
-    ).count()
+    ).select_related('lease')
+    invoice_count = invoices_qs.count()
 
     # Revenue by line kind (invoice line items on invoices in period)
     by_kind: defaultdict[str, Decimal] = defaultdict(Decimal)
-    for row in (
+    invoices_total = Decimal('0')
+    line_items_qs = (
         InvoiceLineItem.objects.filter(
             invoice__org_id=org_id,
             invoice__issue_date__gte=start,
             invoice__issue_date__lte=end,
         )
-        .values('line_kind')
-        .annotate(total=Sum('amount'))
-    ):
-        raw = (row.get('line_kind') or '').strip()
+        .select_related('invoice__lease', 'service')
+        .order_by('invoice_id', 'id')
+    )
+    seen_invoices_with_lines: set[int] = set()
+    for li in line_items_qs:
+        seen_invoices_with_lines.add(li.invoice_id)
+        raw = (li.line_kind or '').strip()
         kind = raw if raw else 'other'
-        by_kind[kind] += row['total'] or Decimal('0')
+        src_currency = default_currency
+        if kind == InvoiceLineItem.LINE_KIND_RENT:
+            src_currency = (
+                (getattr(getattr(li.invoice, 'lease', None), 'rent_currency', '') or default_currency)
+                .upper()
+            )
+        elif kind == InvoiceLineItem.LINE_KIND_SERVICE and li.service_id:
+            src_currency = (li.service.currency or default_currency).upper()
+        amount = convert_to_default(li.amount or Decimal('0'), src_currency, default_currency)
+        by_kind[kind] += amount
+        invoices_total += amount
+
+    # Legacy/fallback invoices without line items
+    for inv in invoices_qs:
+        if inv.id in seen_invoices_with_lines:
+            continue
+        src_currency = ((getattr(inv.lease, 'rent_currency', '') or default_currency)).upper()
+        invoices_total += convert_to_default(inv.total_amount or Decimal('0'), src_currency, default_currency)
 
     revenue_by_line_kind = [
         {'line_kind': k, 'amount': decimal_str(v)}
         for k, v in sorted(by_kind.items(), key=lambda x: x[0])
     ]
 
-    credit_agg = CreditNote.objects.filter(
+    credit_qs = CreditNote.objects.filter(
         invoice__org_id=org_id,
         credit_date__gte=start,
         credit_date__lte=end,
-    ).aggregate(total=Sum('amount'))
-    credit_notes_total = credit_agg['total'] or Decimal('0')
+    ).select_related('invoice__lease')
+    credit_notes_total = Decimal('0')
+    for cn in credit_qs:
+        src_currency = (
+            (getattr(getattr(cn.invoice, 'lease', None), 'rent_currency', '') or default_currency).upper()
+        )
+        credit_notes_total += convert_to_default(cn.amount or Decimal('0'), src_currency, default_currency)
 
     net_revenue = invoices_total - credit_notes_total
 
@@ -76,19 +95,20 @@ def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) 
         org_id=org_id,
         expense_date__gte=start,
         expense_date__lte=end,
-    ).exclude(status='draft')
+    ).exclude(status='draft').select_related('expense_category')
 
-    expenses_total = expense_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    expenses_total = Decimal('0')
 
     by_category: list[dict[str, Any]] = []
-    for row in expense_qs.values('expense_category__name').annotate(total=Sum('amount')):
-        name = row.get('expense_category__name') or 'Uncategorized'
-        by_category.append(
-            {
-                'category': name,
-                'amount': decimal_str(row['total'] or Decimal('0')),
-            }
-        )
+    by_category_totals: defaultdict[str, Decimal] = defaultdict(Decimal)
+    for exp in expense_qs:
+        name = (exp.expense_category.name if exp.expense_category_id else 'Uncategorized') or 'Uncategorized'
+        src_currency = ((exp.currency_code or default_currency)).upper()
+        converted = convert_to_default(exp.amount or Decimal('0'), src_currency, default_currency)
+        by_category_totals[name] += converted
+        expenses_total += converted
+    for name, total in by_category_totals.items():
+        by_category.append({'category': name, 'amount': decimal_str(total)})
     by_category.sort(key=lambda x: x['category'])
 
     net_income = net_revenue - expenses_total

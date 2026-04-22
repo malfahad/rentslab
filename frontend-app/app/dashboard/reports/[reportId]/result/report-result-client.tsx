@@ -178,42 +178,117 @@ function reportToText(data: unknown): string {
   return lines.join("\n");
 }
 
-function escapePdfText(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+function reportToDotMatrixText(data: unknown): string {
+  const { summary, tables } = collectTabularSections(data);
+  const lines: string[] = [];
+  lines.push("REPORT SUMMARY");
+  lines.push("=".repeat(88));
+  for (const [k, v] of summary) {
+    const value = v == null ? "" : typeof v === "string" ? v : JSON.stringify(v);
+    lines.push(`${k.padEnd(36, ".")} ${value}`);
+  }
+  for (const table of tables) {
+    lines.push("");
+    lines.push(`TABLE: ${table.title.toUpperCase()}`);
+    lines.push("-".repeat(88));
+    const cols = tableColumns(table.rows);
+    lines.push(cols.join(" | "));
+    lines.push("-".repeat(88));
+    for (const row of table.rows) {
+      lines.push(
+        cols
+          .map((c) =>
+            row?.[c] == null
+              ? ""
+              : typeof row[c] === "string"
+                ? String(row[c])
+                : JSON.stringify(row[c]),
+          )
+          .join(" | "),
+      );
+    }
+  }
+  return lines.join("\n");
 }
 
-function makeSimplePdf(text: string): Uint8Array {
-  const lines = text.split("\n").slice(0, 120);
-  const contentLines = ["BT", "/F1 10 Tf", "40 780 Td"];
-  for (const line of lines) {
-    contentLines.push(`(${escapePdfText(line.slice(0, 110))}) Tj`);
-    contentLines.push("T*");
-  }
-  contentLines.push("ET");
-  const stream = contentLines.join("\n");
+function buildDotMatrixHtml(
+  reportTitle: string,
+  rangeLabel: string,
+  monoText: string,
+): string {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(reportTitle)} - Dot Matrix PDF</title>
+    <style>
+      @page { size: A4 portrait; margin: 14mm; }
+      body {
+        margin: 0;
+        color: #111;
+        font: 12px/1.35 "Courier New", Courier, monospace;
+        background:
+          radial-gradient(circle, rgba(0,0,0,0.08) 0.7px, transparent 0.8px) 0 0/10px 10px,
+          #fff;
+      }
+      .sheet { white-space: pre-wrap; word-break: break-word; }
+      .meta { margin-bottom: 12px; font-weight: bold; }
+      .rule { border-top: 1px dashed #888; margin: 8px 0 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="meta">REPORT: ${escapeHtml(reportTitle)}\nPERIOD: ${escapeHtml(rangeLabel)}\nGENERATED: ${escapeHtml(new Date().toISOString())}</div>
+    <div class="rule"></div>
+    <div class="sheet">${escapeHtml(monoText)}</div>
+  </body>
+</html>`;
+}
 
-  const objects = [
-    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
-    `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
-    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-  ];
+/**
+ * Parse report payload into a monospaced, dot-matrix style HTML render
+ * and open browser Print dialog via hidden iframe (no popup window).
+ */
+function downloadDotMatrixPdf(reportTitle: string, periodLabel: string, data: unknown): void {
+  const monoText = reportToDotMatrixText(data);
+  const html = buildDotMatrixHtml(reportTitle, periodLabel, monoText);
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
 
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  for (const obj of objects) {
-    offsets.push(pdf.length);
-    pdf += obj;
+  const cleanup = () => {
+    window.setTimeout(() => {
+      iframe.remove();
+    }, 500);
+  };
+
+  const doc = iframe.contentDocument;
+  const win = iframe.contentWindow;
+  if (!doc || !win) {
+    cleanup();
+    throw new Error("Could not initialize print frame.");
   }
-  const xrefStart = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  for (let i = 1; i < offsets.length; i += 1) {
-    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const invokePrint = () => {
+    win.focus();
+    win.print();
+    cleanup();
+  };
+
+  if (doc.readyState === "complete") {
+    invokePrint();
+  } else {
+    iframe.onload = invokePrint;
   }
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
-  return new TextEncoder().encode(pdf);
 }
 
 function triggerDownload(bytes: BlobPart, filename: string, mimeType: string): void {
@@ -337,14 +412,13 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
         const html = reportToExcelHtml(payload, `${report.title} (${start} to ${end})`);
         triggerDownload(html, `${fileBase}.xls`, "application/vnd.ms-excel;charset=utf-8");
       } else {
-        const text = reportToText(payload);
-        const pdf = makeSimplePdf(text);
-        triggerDownload(pdf, `${fileBase}.pdf`, "application/pdf");
+        const periodLabel = `${start} to ${end}`;
+        downloadDotMatrixPdf(report.title, periodLabel, payload);
       }
     } finally {
       setDownloadPending(false);
     }
-  }, [payload, report.slug, periodStart, periodEnd, format]);
+  }, [payload, report.slug, report.title, periodStart, periodEnd, format]);
 
   if (!orgReady) {
     return (

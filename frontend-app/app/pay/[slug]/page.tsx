@@ -154,7 +154,7 @@ export default function PublicPaymentLinkPage() {
                 </p>
               </div>
               <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3">
-                <p className="text-xs uppercase tracking-wide text-[#6B7280]">Tenant verified</p>
+                <p className="text-xs uppercase tracking-wide text-[#6B7280]">Tenant Info</p>
                 <p className="mt-1 font-medium text-[#111827]">
                   {maskedTenant}
                 </p>

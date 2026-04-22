@@ -13,6 +13,7 @@ import { listAllJobOrders } from "@/services/job-order-service";
 import { listLandlords } from "@/services/landlord-service";
 import { listAllLeases } from "@/services/lease-service";
 import { getOrg } from "@/services/org-service";
+import { fetchReport } from "@/services/report-service";
 import { listUnits } from "@/services/unit-service";
 import type { InvoiceDto } from "@/types/billing";
 import type { ExpenseDto } from "@/types/expense";
@@ -49,6 +50,10 @@ type ActivityItem = {
   detail: string;
   time: string;
   href: string;
+};
+
+type RentRollReportDto = {
+  total_scheduled_rent?: string;
 };
 
 type TooltipState = {
@@ -230,6 +235,7 @@ export default function DashboardHomePage() {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const [orgCurrency, setOrgCurrency] = useState("USD");
   const [orgLocale, setOrgLocale] = useState<string | undefined>(undefined);
+  const [convertedRentRoll, setConvertedRentRoll] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (orgId == null) return;
@@ -257,6 +263,19 @@ export default function DashboardHomePage() {
       setUnitCount(unitsPage.count ?? 0);
       setOrgCurrency(org.default_currency || "USD");
       setOrgLocale(org.locale || undefined);
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, "0");
+      const d = String(today.getDate()).padStart(2, "0");
+      const asOf = `${y}-${m}-${d}`;
+      const rentRollPayload = await fetchReport("rent-roll", {
+        asOf,
+        periodEnd: asOf,
+      });
+      const converted = toAmount(
+        (rentRollPayload as RentRollReportDto)?.total_scheduled_rent ?? 0,
+      );
+      setConvertedRentRoll(converted);
     } catch (e) {
       setLoadError(
         e instanceof ApiError ? e.messageForUser : "Could not load dashboard data.",
@@ -270,6 +289,7 @@ export default function DashboardHomePage() {
       setUnitCount(0);
       setOrgCurrency("USD");
       setOrgLocale(undefined);
+      setConvertedRentRoll(null);
     } finally {
       setLoading(false);
     }
@@ -290,10 +310,10 @@ export default function DashboardHomePage() {
     return Math.round((activeLeases.length / leases.length) * 1000) / 10;
   }, [leases, activeLeases]);
 
-  const rentRoll = useMemo(
-    () => activeLeases.reduce((sum, x) => sum + toAmount(x.rent_amount), 0),
-    [activeLeases],
-  );
+  const rentRoll = useMemo(() => {
+    if (convertedRentRoll != null) return convertedRentRoll;
+    return activeLeases.reduce((sum, x) => sum + toAmount(x.rent_amount), 0);
+  }, [convertedRentRoll, activeLeases]);
 
   const outstandingBalance = useMemo(
     () =>

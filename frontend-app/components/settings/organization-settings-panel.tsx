@@ -13,6 +13,17 @@ const TIMEZONE_OPTIONS = [
 ];
 
 const CURRENCY_OPTIONS: Array<OrgDto["default_currency"]> = ["KES", "UGX", "TZS", "USD"];
+const LANGUAGE_OPTIONS = [
+  { value: "en", label: "English (en)" },
+  { value: "sw", label: "Swahili (sw)" },
+];
+const LOCALE_OPTIONS = [
+  { value: "en-US", label: "English (United States) — en-US" },
+  { value: "en-UG", label: "English (Uganda) — en-UG" },
+  { value: "en-KE", label: "English (Kenya) — en-KE" },
+  { value: "sw-UG", label: "Swahili (Uganda) — sw-UG" },
+  { value: "sw-KE", label: "Swahili (Kenya) — sw-KE" },
+];
 
 type FormState = {
   name: string;
@@ -43,8 +54,8 @@ function toFormState(org: OrgDto): FormState {
     tagline: org.tagline || "",
     timezone: org.timezone || "Africa/Nairobi",
     language: org.language || "en",
-    locale: org.locale || "en-KE",
-    default_currency: org.default_currency || "KES",
+    locale: org.locale || "en-US",
+    default_currency: org.default_currency || "UGX",
     email: org.email || "",
     phone: org.phone || "",
     website: org.website || "",
@@ -169,11 +180,31 @@ export function OrganizationSettingsPanel() {
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-[#374151]">Language</span>
-            <input className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2" value={form.language} onChange={(e) => set("language", e.target.value)} />
+            <select
+              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2"
+              value={form.language}
+              onChange={(e) => set("language", e.target.value)}
+            >
+              {LANGUAGE_OPTIONS.map((lang) => (
+                <option key={lang.value} value={lang.value}>
+                  {lang.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-[#374151]">Locale</span>
-            <input className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2" value={form.locale} onChange={(e) => set("locale", e.target.value)} />
+            <select
+              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2"
+              value={form.locale}
+              onChange={(e) => set("locale", e.target.value)}
+            >
+              {LOCALE_OPTIONS.map((locale) => (
+                <option key={locale.value} value={locale.value}>
+                  {locale.label}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
         <label className="space-y-1 text-sm block max-w-xs">
