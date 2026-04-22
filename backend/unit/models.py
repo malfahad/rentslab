@@ -74,6 +74,11 @@ class Unit(models.Model):
             super().save(*args, **kwargs)
 
         self.payment_code = self._next_available_payment_code()
+        # Model.objects.create() passes force_insert=True on save(). The first insert above
+        # must not be followed by a second save() that still has force_insert or Django
+        # attempts another INSERT with the same pk (IntegrityError + rolled-back txn).
+        kwargs.pop('force_insert', None)
+        kwargs.pop('force_update', None)
         update_fields = kwargs.get('update_fields')
         if update_fields is None:
             super().save(*args, **kwargs)
