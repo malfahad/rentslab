@@ -6,10 +6,13 @@ import { DashboardListView } from "@/components/dashboard/main-view";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { useOrg } from "@/contexts/org-context";
 import { ApiError } from "@/lib/api/errors";
+import { listBuildings } from "@/services/building-service";
 import { listExpenses } from "@/services/expense-service";
 import { listInvoices } from "@/services/invoice-service";
 import { listAllJobOrders } from "@/services/job-order-service";
+import { listLandlords } from "@/services/landlord-service";
 import { listAllLeases } from "@/services/lease-service";
+import { listUnits } from "@/services/unit-service";
 import type { InvoiceDto } from "@/types/billing";
 import type { ExpenseDto } from "@/types/expense";
 import type { JobOrderDto, LeaseDto } from "@/types/operations";
@@ -218,6 +221,9 @@ export default function DashboardHomePage() {
   const [leases, setLeases] = useState<LeaseDto[]>([]);
   const [expenses, setExpenses] = useState<ExpenseDto[]>([]);
   const [jobOrders, setJobOrders] = useState<JobOrderDto[]>([]);
+  const [buildingCount, setBuildingCount] = useState(0);
+  const [landlordCount, setLandlordCount] = useState(0);
+  const [unitCount, setUnitCount] = useState(0);
   const [collectionRange, setCollectionRange] = useState<CollectionRange>("quarter");
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const chartRef = useRef<HTMLDivElement | null>(null);
@@ -233,10 +239,18 @@ export default function DashboardHomePage() {
         listAllExpenses(),
         listAllJobOrders(),
       ]);
+      const [buildingsPage, landlordsPage, unitsPage] = await Promise.all([
+        listBuildings({ page: 1, pageSize: 1 }),
+        listLandlords({ page: 1, pageSize: 1 }),
+        listUnits({ page: 1, pageSize: 1 }),
+      ]);
       setInvoices(inv);
       setLeases(ls);
       setExpenses(ex);
       setJobOrders(jo);
+      setBuildingCount(buildingsPage.count ?? 0);
+      setLandlordCount(landlordsPage.count ?? 0);
+      setUnitCount(unitsPage.count ?? 0);
     } catch (e) {
       setLoadError(
         e instanceof ApiError ? e.messageForUser : "Could not load dashboard data.",
@@ -245,6 +259,9 @@ export default function DashboardHomePage() {
       setLeases([]);
       setExpenses([]);
       setJobOrders([]);
+      setBuildingCount(0);
+      setLandlordCount(0);
+      setUnitCount(0);
     } finally {
       setLoading(false);
     }
@@ -450,6 +467,12 @@ export default function DashboardHomePage() {
     ...collectionSeries.map((x) => Math.max(x.collected, x.outstanding)),
   );
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((r) => r * maxCollection);
+  const isFreshWorkspace =
+    !loading &&
+    !loadError &&
+    buildingCount === 0 &&
+    landlordCount === 0 &&
+    unitCount === 0;
 
   if (!orgReady) {
     return (
@@ -479,6 +502,31 @@ export default function DashboardHomePage() {
         {loadError ? <p className="text-sm text-red-800">{loadError}</p> : null}
         {loading ? (
           <p className="text-sm text-[#6B7280]">Loading portfolio aggregates…</p>
+        ) : null}
+        {isFreshWorkspace ? (
+          <section className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm md:p-8">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-blue">
+              Welcome
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-brand-navy">
+              Start building your portfolio
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[#4B5563]">
+              Your workspace is brand new. Add your first landlord to unlock buildings,
+              units, leases, and rent tracking.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <Link
+                href="/dashboard/landlords/create"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-brand-navy px-4 text-sm font-medium text-white shadow-sm transition hover:bg-brand-blue"
+              >
+                Add landlord
+              </Link>
+              <span className="text-xs text-[#6B7280]">
+                Next steps: add buildings, then add units.
+              </span>
+            </div>
+          </section>
         ) : null}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
