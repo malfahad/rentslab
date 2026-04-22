@@ -4,6 +4,8 @@ from .models import Org
 
 
 class OrgSerializer(serializers.ModelSerializer):
+    default_currency = serializers.ChoiceField(choices=['KES', 'UGX', 'TZS', 'USD'])
+
     class Meta:
         model = Org
         fields = [
@@ -11,9 +13,17 @@ class OrgSerializer(serializers.ModelSerializer):
             'name',
             'org_type',
             'legal_name',
+            'business_registration_number',
+            'tax_id',
             'email',
             'phone',
             'website',
+            'logo_url',
+            'tagline',
+            'timezone',
+            'language',
+            'locale',
+            'default_currency',
             'address_line1',
             'address_line2',
             'city',

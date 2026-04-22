@@ -19,6 +19,7 @@ export type IncomeStatementReport = {
   slug: string;
   org_id: number;
   status: "ok" | "stub" | string;
+  report_currency?: string;
   basis?: string;
   period?: { start: string; end: string };
   revenue?: {
@@ -39,6 +40,7 @@ export type CashFlowReport = {
   slug: string;
   org_id: number;
   status: "ok" | "stub" | string;
+  report_currency?: string;
   basis?: string;
   period?: { start: string; end: string };
   cash_in?: {
@@ -73,6 +75,7 @@ export type RentRollReport = {
   slug: string;
   org_id: number;
   status: "ok" | "stub" | string;
+  report_currency?: string;
   as_of?: string;
   lease_count?: number;
   total_scheduled_rent?: string;

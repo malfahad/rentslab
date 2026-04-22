@@ -13,8 +13,9 @@ import {
   jobOrderStatusLabel,
 } from "@/lib/constants/job-order-status";
 import { ApiError } from "@/lib/api/errors";
+import { listBuildings, listAllBuildings } from "@/services/building-service";
 import { listAllInvoicesForLease } from "@/services/invoice-service";
-import { listAllBuildings } from "@/services/building-service";
+import { listLandlords } from "@/services/landlord-service";
 import {
   deleteJobOrder,
   getJobOrder,
@@ -22,7 +23,7 @@ import {
   updateJobOrder,
 } from "@/services/job-order-service";
 import { listAllLeases } from "@/services/lease-service";
-import { listAllUnits } from "@/services/unit-service";
+import { listUnits, listAllUnits } from "@/services/unit-service";
 import { listAllVendors } from "@/services/vendor-service";
 import type { InvoiceDto } from "@/types/billing";
 import type { BuildingDto, UnitDto } from "@/types/portfolio";
@@ -56,6 +57,9 @@ export default function JobOrderDetailPage() {
   const { orgReady, orgId } = useOrg();
 
   const [job, setJob] = useState<JobOrderDto | null>(null);
+  const [buildingCount, setBuildingCount] = useState(0);
+  const [landlordCount, setLandlordCount] = useState(0);
+  const [unitCount, setUnitCount] = useState(0);
   const [buildings, setBuildings] = useState<BuildingDto[]>([]);
   const [units, setUnits] = useState<UnitDto[]>([]);
   const [vendors, setVendors] = useState<VendorDto[]>([]);
@@ -88,6 +92,20 @@ export default function JobOrderDetailPage() {
     }
     setLoading(true);
     setLoadError(null);
+    try {
+      const [buildingsPage, landlordsPage, unitsPage] = await Promise.all([
+        listBuildings({ page: 1, pageSize: 1 }),
+        listLandlords({ page: 1, pageSize: 1 }),
+        listUnits({ page: 1, pageSize: 1 }),
+      ]);
+      setBuildingCount(buildingsPage.count ?? 0);
+      setLandlordCount(landlordsPage.count ?? 0);
+      setUnitCount(unitsPage.count ?? 0);
+    } catch {
+      setBuildingCount(0);
+      setLandlordCount(0);
+      setUnitCount(0);
+    }
     try {
       const [j, b, u, v, ls] = await Promise.all([
         getJobOrder(id),
@@ -291,6 +309,8 @@ export default function JobOrderDetailPage() {
       : "Job order";
 
   const nextStatuses = job ? allowedNextJobOrderStatuses(job.status) : [];
+  const isFreshWorkspace =
+    !loading && buildingCount === 0 && landlordCount === 0 && unitCount === 0;
 
   return (
     <>
@@ -304,6 +324,12 @@ export default function JobOrderDetailPage() {
         suggestedActions={
           job ? (
             <>
+              <Link
+                href={`/dashboard/job-orders/${job.id}/edit`}
+                className="btn-secondary w-full"
+              >
+                Edit job order
+              </Link>
               <Link
                 href={`/dashboard/expenses/create?job_order=${job.id}`}
                 className="btn-primary w-full"
@@ -321,6 +347,57 @@ export default function JobOrderDetailPage() {
           ) : null
         }
       >
+        {isFreshWorkspace ? (
+          <section className="rounded-xl border border-[#DBEAFE] bg-[#EFF6FF] p-4 shadow-sm">
+            <details open>
+              <summary className="cursor-pointer list-none">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#1D4ED8]">
+                      Welcome
+                    </p>
+                    <h2 className="mt-1 text-base font-semibold text-brand-navy">
+                      Concierge onboarding flow
+                    </h2>
+                  </div>
+                  <span className="text-xs font-medium text-[#1D4ED8]">
+                    Expand/Collapse
+                  </span>
+                </div>
+              </summary>
+              <div className="mt-3 space-y-3 text-sm text-[#1E3A8A]">
+                <p>
+                  Your workspace is brand new. Follow this guided setup to start
+                  tracking maintenance work orders.
+                </p>
+                <ol className="list-decimal space-y-1 pl-5">
+                  <li>
+                    Add your first landlord{" "}
+                    <Link href="/dashboard/landlords/create" className="underline">
+                      here
+                    </Link>
+                    .
+                  </li>
+                  <li>
+                    Add your first building{" "}
+                    <Link href="/dashboard/buildings/create" className="underline">
+                      here
+                    </Link>
+                    .
+                  </li>
+                  <li>
+                    Add your first unit{" "}
+                    <Link href="/dashboard/units/create" className="underline">
+                      here
+                    </Link>
+                    .
+                  </li>
+                  <li>Create your first job order from the Job Orders page.</li>
+                </ol>
+              </div>
+            </details>
+          </section>
+        ) : null}
         {loadError ? (
           <p className="text-sm text-red-800">{loadError}</p>
         ) : null}

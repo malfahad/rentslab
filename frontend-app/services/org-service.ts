@@ -14,3 +14,35 @@ export async function listMyOrgs(): Promise<OrgDto[]> {
 export async function getOrg(id: number): Promise<OrgDto> {
   return apiRequestBearer<OrgDto>(`/orgs/${id}/`);
 }
+
+export type OrgUpdatePayload = Partial<
+  Pick<
+    OrgDto,
+    | "name"
+    | "legal_name"
+    | "business_registration_number"
+    | "tax_id"
+    | "email"
+    | "phone"
+    | "website"
+    | "logo_url"
+    | "tagline"
+    | "timezone"
+    | "language"
+    | "locale"
+    | "default_currency"
+    | "address_line1"
+    | "address_line2"
+    | "city"
+    | "region"
+    | "postal_code"
+    | "country_code"
+  >
+>;
+
+export async function updateOrg(id: number, payload: OrgUpdatePayload): Promise<OrgDto> {
+  return apiRequestBearer<OrgDto>(`/orgs/${id}/`, {
+    method: "PATCH",
+    body: payload,
+  });
+}

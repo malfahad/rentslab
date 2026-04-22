@@ -52,6 +52,8 @@ export type UnitDto = {
   unit_type: string;
   size: string | null;
   status: string;
+  payment_code?: string;
+  payment_code_status?: "active" | "inactive" | "suspended";
   address_override_line1: string;
   address_override_city: string;
   internal_notes: string;

@@ -17,6 +17,7 @@ from credit_note.models import CreditNote
 from expense.models import Expense
 from invoice.models import Invoice
 from invoice_line_item.models import InvoiceLineItem
+from org.models import Org
 
 from .base import decimal_str
 from .period import parse_report_period
@@ -26,6 +27,8 @@ SLUG = 'income-statement'
 
 def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
     start, end = parse_report_period(params)
+    org = Org.objects.filter(pk=org_id).only('default_currency').first()
+    default_currency = ((org.default_currency if org else 'KES') or 'KES').upper()
 
     invoices_agg = Invoice.objects.filter(
         org_id=org_id,
@@ -94,6 +97,7 @@ def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) 
         'slug': SLUG,
         'org_id': org_id,
         'status': 'ok',
+        'report_currency': default_currency,
         'basis': 'accrual',
         'period': {
             'start': start.isoformat(),

@@ -9,6 +9,7 @@ import {
   SETTINGS_TABS,
   type SettingsTabId,
 } from "@/lib/settings/settings-tabs-config";
+import { OrganizationSettingsPanel } from "./organization-settings-panel";
 import { OutlineTree } from "./outline-tree";
 
 const TAB_PARAM = "tab";
@@ -81,21 +82,41 @@ export function SettingsTabbedView() {
             aria-labelledby={`settings-tab-${tabDef.id}`}
             className="p-4 md:p-6"
           >
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-dashed border-[#E5E7EB] pb-4">
-              <h2 className="font-serif text-lg font-medium text-brand-navy">
-                {tabDef.title}
-              </h2>
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900 ring-1 ring-amber-200/80">
-                Coming soon
-              </span>
-            </div>
-            <p className="mt-4 text-sm text-[#6B7280]">
-              The following areas are planned for this section. Editing will be
-              enabled in a future release.
-            </p>
-            <div className="mt-6 rounded-lg border border-dashed border-[#D1D5DB] bg-[#FAFAFA] p-4 md:p-5">
-              <OutlineTree nodes={tabDef.outline} />
-            </div>
+            {tabDef.id === "organization" ? (
+              <div>
+                <div className="border-b border-dashed border-[#E5E7EB] pb-4">
+                  <h2 className="font-serif text-lg font-medium text-brand-navy">
+                    {tabDef.title}
+                  </h2>
+                  <p className="mt-3 text-sm text-[#6B7280]">
+                    Configure organization identity, regional defaults, currency,
+                    and registration profile. These settings are reused across
+                    dashboard and reporting.
+                  </p>
+                </div>
+                <div className="mt-6">
+                  <OrganizationSettingsPanel />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-dashed border-[#E5E7EB] pb-4">
+                  <h2 className="font-serif text-lg font-medium text-brand-navy">
+                    {tabDef.title}
+                  </h2>
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900 ring-1 ring-amber-200/80">
+                    Coming soon
+                  </span>
+                </div>
+                <p className="mt-4 text-sm text-[#6B7280]">
+                  The following areas are planned for this section. Editing will be
+                  enabled in a future release.
+                </p>
+                <div className="mt-6 rounded-lg border border-dashed border-[#D1D5DB] bg-[#FAFAFA] p-4 md:p-5">
+                  <OutlineTree nodes={tabDef.outline} />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

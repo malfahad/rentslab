@@ -167,10 +167,20 @@ export const REPORTS: ReportDefinition[] = [
   },
 ];
 
+const BACKEND_WIRED_REPORT_SLUGS = new Set<string>([
+  "income-statement",
+  "cash-flow",
+  "rent-roll",
+]);
+
 export function getReportBySlug(slug: string): ReportDefinition | undefined {
   return REPORTS.find((r) => r.slug === slug);
 }
 
 export function reportsForGroup(groupId: ReportGroupId): ReportDefinition[] {
   return REPORTS.filter((r) => r.groupId === groupId);
+}
+
+export function isReportBackendWired(slug: string): boolean {
+  return BACKEND_WIRED_REPORT_SLUGS.has(slug);
 }

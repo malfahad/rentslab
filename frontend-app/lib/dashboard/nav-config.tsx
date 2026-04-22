@@ -165,6 +165,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/invoices", label: "Invoices", icon: IconInvoice },
       { href: "/dashboard/credit-notes", label: "Credit Notes", icon: IconCredit },
       { href: "/dashboard/payments", label: "Payments", icon: IconPayment },
+      { href: "/dashboard/payment-codes", label: "Payment Codes", icon: IconPayment },
       { href: "/dashboard/expenses", label: "Expenses", icon: IconExpense },
     ],
   },

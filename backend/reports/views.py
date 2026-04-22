@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from access.services import get_org_id_from_request, user_has_org_membership
 from rest_framework import status, viewsets
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -20,8 +21,20 @@ class ReportViewSet(viewsets.ViewSet):
 
     permission_classes = [IsAuthenticated]
 
+    def _resolve_org_id(self, request) -> int | None:
+        """
+        Resolve org context from header after DRF auth has populated request.user.
+        """
+        oid = get_org_id_from_request(request)
+        if oid is None:
+            return None
+        if not user_has_org_membership(request.user, oid):
+            return None
+        return oid
+
     def list(self, request):
-        if request.org_id is None:
+        org_id = self._resolve_org_id(request)
+        if org_id is None:
             return Response(
                 {'detail': 'Valid X-Org-ID header required.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -29,7 +42,8 @@ class ReportViewSet(viewsets.ViewSet):
         return Response({'reports': sorted(REPORT_LOOKUPS.keys())})
 
     def retrieve(self, request, pk=None):
-        if request.org_id is None:
+        org_id = self._resolve_org_id(request)
+        if org_id is None:
             return Response(
                 {'detail': 'Valid X-Org-ID header required.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -39,4 +53,4 @@ class ReportViewSet(viewsets.ViewSet):
         if fn is None:
             raise NotFound('Unknown report slug.')
         params = request.query_params.dict()
-        return Response(fn(org_id=request.org_id, params=params))
+        return Response(fn(org_id=org_id, params=params))

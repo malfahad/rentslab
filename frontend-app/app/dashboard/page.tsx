@@ -12,6 +12,7 @@ import { listInvoices } from "@/services/invoice-service";
 import { listAllJobOrders } from "@/services/job-order-service";
 import { listLandlords } from "@/services/landlord-service";
 import { listAllLeases } from "@/services/lease-service";
+import { getOrg } from "@/services/org-service";
 import { listUnits } from "@/services/unit-service";
 import type { InvoiceDto } from "@/types/billing";
 import type { ExpenseDto } from "@/types/expense";
@@ -77,15 +78,15 @@ function toAmount(value: string | number | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function money(value: number): string {
+function money(value: number, currency: string, locale?: string): string {
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale || undefined, {
       style: "currency",
-      currency: "USD",
+      currency,
       maximumFractionDigits: 0,
     }).format(value);
   } catch {
-    return `$${Math.round(value).toLocaleString()}`;
+    return `${currency} ${Math.round(value).toLocaleString()}`;
   }
 }
 
@@ -227,6 +228,8 @@ export default function DashboardHomePage() {
   const [collectionRange, setCollectionRange] = useState<CollectionRange>("quarter");
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const chartRef = useRef<HTMLDivElement | null>(null);
+  const [orgCurrency, setOrgCurrency] = useState("USD");
+  const [orgLocale, setOrgLocale] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     if (orgId == null) return;
@@ -244,6 +247,7 @@ export default function DashboardHomePage() {
         listLandlords({ page: 1, pageSize: 1 }),
         listUnits({ page: 1, pageSize: 1 }),
       ]);
+      const org = await getOrg(orgId);
       setInvoices(inv);
       setLeases(ls);
       setExpenses(ex);
@@ -251,6 +255,8 @@ export default function DashboardHomePage() {
       setBuildingCount(buildingsPage.count ?? 0);
       setLandlordCount(landlordsPage.count ?? 0);
       setUnitCount(unitsPage.count ?? 0);
+      setOrgCurrency(org.default_currency || "USD");
+      setOrgLocale(org.locale || undefined);
     } catch (e) {
       setLoadError(
         e instanceof ApiError ? e.messageForUser : "Could not load dashboard data.",
@@ -262,6 +268,8 @@ export default function DashboardHomePage() {
       setBuildingCount(0);
       setLandlordCount(0);
       setUnitCount(0);
+      setOrgCurrency("USD");
+      setOrgLocale(undefined);
     } finally {
       setLoading(false);
     }
@@ -319,13 +327,13 @@ export default function DashboardHomePage() {
       },
       {
         label: "Monthly rent roll",
-        value: money(rentRoll),
+        value: money(rentRoll, orgCurrency, orgLocale),
         delta: `${activeLeases.length} active lease${activeLeases.length === 1 ? "" : "s"}`,
         trend: rentRoll > 0 ? "up" : "flat",
       },
       {
         label: "Outstanding balance",
-        value: money(outstandingBalance),
+        value: money(outstandingBalance, orgCurrency, orgLocale),
         delta: `${invoices.filter((x) => x.status !== "paid").length} unpaid/partial invoices`,
         trend: outstandingBalance > 0 ? "down" : "up",
       },
@@ -342,6 +350,8 @@ export default function DashboardHomePage() {
       leases.length,
       rentRoll,
       outstandingBalance,
+      orgCurrency,
+      orgLocale,
       invoices,
       openJobOrders.length,
       urgentJobOrders.length,
@@ -384,7 +394,7 @@ export default function DashboardHomePage() {
     const overdueAmt = overdue.reduce((s, x) => s + toAmount(x.outstanding_amount), 0);
     rows.push({
       title: `${overdue.length} invoices overdue > 14 days`,
-      detail: `Outstanding at risk: ${money(overdueAmt)}`,
+      detail: `Outstanding at risk: ${money(overdueAmt, orgCurrency, orgLocale)}`,
       level: overdue.length > 0 ? "urgent" : "healthy",
       href: "/dashboard/invoices?status=unpaid",
     });
@@ -418,14 +428,22 @@ export default function DashboardHomePage() {
       href: "/dashboard/expenses?status=draft",
     });
     return rows;
-  }, [invoices, activeLeases, urgentJobOrders.length, openJobOrders.length, expenses]);
+  }, [
+    invoices,
+    activeLeases,
+    urgentJobOrders.length,
+    openJobOrders.length,
+    expenses,
+    orgCurrency,
+    orgLocale,
+  ]);
 
   const recentActivity: ActivityItem[] = useMemo(() => {
     const items: Array<ActivityItem & { ts: string }> = [];
     for (const inv of invoices.slice(0, 30)) {
       items.push({
         title: `Invoice ${inv.invoice_number?.trim() || `#${inv.id}`}`,
-        detail: `${inv.status} · ${money(toAmount(inv.total_amount))}`,
+        detail: `${inv.status} · ${money(toAmount(inv.total_amount), orgCurrency, orgLocale)}`,
         time: relativeTime(inv.updated_at),
         href: `/dashboard/invoices/${inv.id}`,
         ts: inv.updated_at,
@@ -443,7 +461,7 @@ export default function DashboardHomePage() {
     for (const e of expenses.slice(0, 30)) {
       items.push({
         title: `Expense #${e.id} ${e.status}`,
-        detail: `${money(toAmount(e.amount))} · ${e.description || "Expense entry"}`,
+        detail: `${money(toAmount(e.amount), orgCurrency, orgLocale)} · ${e.description || "Expense entry"}`,
         time: relativeTime(e.updated_at),
         href: `/dashboard/expenses/${e.id}`,
         ts: e.updated_at,
@@ -460,7 +478,7 @@ export default function DashboardHomePage() {
     }
     items.sort((a, b) => +new Date(b.ts) - +new Date(a.ts));
     return items.slice(0, 6).map(({ ts: _ts, ...rest }) => rest);
-  }, [invoices, leases, expenses, jobOrders]);
+  }, [invoices, leases, expenses, jobOrders, orgCurrency, orgLocale]);
 
   const maxCollection = Math.max(
     1,
@@ -591,7 +609,7 @@ export default function DashboardHomePage() {
                         className="absolute right-0 text-[10px] text-[#9CA3AF]"
                         style={{ top: `${i * 25}%`, transform: "translateY(-50%)" }}
                       >
-                        {money(v)}
+                        {money(v, orgCurrency, orgLocale)}
                       </div>
                     ))}
                 </div>
@@ -673,8 +691,12 @@ export default function DashboardHomePage() {
                   }}
                 >
                   <p className="font-semibold text-[#111827]">{tooltip.title}</p>
-                  <p className="mt-1 text-blue-700">Collected: {money(tooltip.collected)}</p>
-                  <p className="text-red-600">Outstanding: {money(tooltip.outstanding)}</p>
+                  <p className="mt-1 text-blue-700">
+                    Collected: {money(tooltip.collected, orgCurrency, orgLocale)}
+                  </p>
+                  <p className="text-red-600">
+                    Outstanding: {money(tooltip.outstanding, orgCurrency, orgLocale)}
+                  </p>
                 </div>
               ) : null}
             </div>

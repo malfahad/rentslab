@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'credit_note',
     'payment',
     'payment_allocation',
+    'payment_link',
     'vendor',
     'expense_category',
     'job_order',
@@ -125,6 +126,9 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    # Keep query key "format" available for report filters (e.g. format=pdf)
+    # instead of DRF content-negotiation override.
+    'URL_FORMAT_OVERRIDE': None,
 }
 
 SIMPLE_JWT = {

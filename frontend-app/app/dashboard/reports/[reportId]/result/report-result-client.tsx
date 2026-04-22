@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReportResultPayload } from "@/components/reports/report-result-payload";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { PortfolioFormShell } from "@/components/portfolio/portfolio-form-shell";
 import { useOrg } from "@/contexts/org-context";
 import { ApiError } from "@/lib/api/errors";
+import { setStoredOrgId } from "@/lib/auth-storage";
 import type { ReportDefinition } from "@/lib/reports/catalog";
 import { fetchReport } from "@/services/report-service";
 
@@ -20,6 +21,211 @@ const FORMAT_LABELS: Record<string, string> = {
 function formatLabel(raw: string | null): string {
   if (raw == null || raw === "") return "—";
   return FORMAT_LABELS[raw] ?? raw.toUpperCase();
+}
+
+function fileSafe(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function toCsvValue(value: unknown): string {
+  const str =
+    value == null
+      ? ""
+      : typeof value === "string"
+        ? value
+        : JSON.stringify(value);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+type TabularSection = { title: string; rows: Array<Record<string, unknown>> };
+
+function collectTabularSections(
+  input: unknown,
+  path = "",
+  summary: Array<[string, unknown]> = [],
+  tables: TabularSection[] = [],
+): { summary: Array<[string, unknown]>; tables: TabularSection[] } {
+  if (input == null || typeof input !== "object") {
+    summary.push([path || "value", input]);
+    return { summary, tables };
+  }
+
+  if (Array.isArray(input)) {
+    if (
+      input.length > 0 &&
+      input.every((row) => row != null && typeof row === "object" && !Array.isArray(row))
+    ) {
+      tables.push({ title: path || "rows", rows: input as Array<Record<string, unknown>> });
+    } else {
+      summary.push([path || "value", JSON.stringify(input)]);
+    }
+    return { summary, tables };
+  }
+
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    const key = path ? `${path}.${k}` : k;
+    collectTabularSections(v, key, summary, tables);
+  }
+  return { summary, tables };
+}
+
+function tableColumns(rows: Array<Record<string, unknown>>): string[] {
+  return Array.from(
+    rows.reduce((set, row) => {
+      for (const key of Object.keys(row ?? {})) set.add(key);
+      return set;
+    }, new Set<string>()),
+  );
+}
+
+function reportToCsv(data: unknown): string {
+  const { summary, tables } = collectTabularSections(data);
+  const lines: string[] = [];
+
+  lines.push(toCsvValue("Report Summary"));
+  lines.push(`${toCsvValue("field")},${toCsvValue("value")}`);
+  for (const [k, v] of summary) {
+    lines.push(`${toCsvValue(k)},${toCsvValue(v)}`);
+  }
+
+  for (const table of tables) {
+    lines.push("");
+    lines.push(toCsvValue(`Table: ${table.title}`));
+    const cols = tableColumns(table.rows);
+    lines.push(cols.map((c) => toCsvValue(c)).join(","));
+    for (const row of table.rows) {
+      lines.push(cols.map((c) => toCsvValue(row?.[c])).join(","));
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function reportToExcelHtml(data: unknown, title: string): string {
+  const { summary, tables } = collectTabularSections(data);
+
+  const summaryRows = summary
+    .map(
+      ([k, v]) =>
+        `<tr><td>${escapeHtml(String(k))}</td><td>${escapeHtml(
+          v == null ? "" : typeof v === "string" ? v : JSON.stringify(v),
+        )}</td></tr>`,
+    )
+    .join("");
+
+  const tableBlocks = tables
+    .map((table) => {
+      const cols = tableColumns(table.rows);
+      const head = cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+      const body = table.rows
+        .map((row) => {
+          const tds = cols
+            .map((c) =>
+              `<td>${escapeHtml(
+                row?.[c] == null
+                  ? ""
+                  : typeof row[c] === "string"
+                    ? String(row[c])
+                    : JSON.stringify(row[c]),
+              )}</td>`,
+            )
+            .join("");
+          return `<tr>${tds}</tr>`;
+        })
+        .join("");
+      return `<h3>${escapeHtml(table.title)}</h3><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    })
+    .join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8" /><style>body{font-family:Arial,sans-serif;font-size:12px}table{border-collapse:collapse;margin:8px 0 18px;width:100%}th,td{border:1px solid #ccc;padding:6px;text-align:left}h2,h3{margin:12px 0 6px}</style></head><body><h2>${escapeHtml(
+    title,
+  )}</h2><h3>Summary</h3><table><thead><tr><th>field</th><th>value</th></tr></thead><tbody>${summaryRows}</tbody></table>${tableBlocks}</body></html>`;
+}
+
+function reportToText(data: unknown): string {
+  const { summary, tables } = collectTabularSections(data);
+  const lines: string[] = ["Report Summary"];
+  for (const [k, v] of summary) {
+    lines.push(`- ${k}: ${v == null ? "" : typeof v === "string" ? v : JSON.stringify(v)}`);
+  }
+  for (const table of tables) {
+    lines.push("");
+    lines.push(`Table: ${table.title}`);
+    const cols = tableColumns(table.rows);
+    lines.push(cols.join(" | "));
+    for (const row of table.rows) {
+      lines.push(
+        cols
+          .map((c) =>
+            row?.[c] == null
+              ? ""
+              : typeof row[c] === "string"
+                ? String(row[c])
+                : JSON.stringify(row[c]),
+          )
+          .join(" | "),
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
+function escapePdfText(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function makeSimplePdf(text: string): Uint8Array {
+  const lines = text.split("\n").slice(0, 120);
+  const contentLines = ["BT", "/F1 10 Tf", "40 780 Td"];
+  for (const line of lines) {
+    contentLines.push(`(${escapePdfText(line.slice(0, 110))}) Tj`);
+    contentLines.push("T*");
+  }
+  contentLines.push("ET");
+  const stream = contentLines.join("\n");
+
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
+    `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const obj of objects) {
+    offsets.push(pdf.length);
+    pdf += obj;
+  }
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let i = 1; i < offsets.length; i += 1) {
+    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+  return new TextEncoder().encode(pdf);
+}
+
+function triggerDownload(bytes: BlobPart, filename: string, mimeType: string): void {
+  const blob = new Blob([bytes], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function ReportResultClient({ report }: { report: ReportDefinition }) {
@@ -54,6 +260,11 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
   );
   const [payload, setPayload] = useState<unknown>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [downloadPending, setDownloadPending] = useState(false);
+  const reportCurrency =
+    payload != null && typeof payload === "object"
+      ? ((payload as Record<string, unknown>).report_currency as string | undefined)
+      : undefined;
 
   useEffect(() => {
     if (!orgReady || orgId == null || !hasParams) {
@@ -62,6 +273,8 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
       setErrorMessage(null);
       return;
     }
+    // Ensure authed API helper sends the currently selected org in X-Org-ID.
+    setStoredOrgId(orgId);
 
     const query: Record<string, string> = {
       periodStart: periodStart!,
@@ -107,6 +320,32 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
     scope,
   ]);
 
+  const handleDownload = useCallback(() => {
+    if (payload == null) return;
+    const safeSlug = fileSafe(report.slug || "report");
+    const start = periodStart || "start";
+    const end = periodEnd || "end";
+    const fileBase = `${safeSlug}_${start}_to_${end}`;
+    const requested = (format || "pdf").toLowerCase();
+
+    setDownloadPending(true);
+    try {
+      if (requested === "csv") {
+        const csv = reportToCsv(payload);
+        triggerDownload(csv, `${fileBase}.csv`, "text/csv;charset=utf-8");
+      } else if (requested === "excel") {
+        const html = reportToExcelHtml(payload, `${report.title} (${start} to ${end})`);
+        triggerDownload(html, `${fileBase}.xls`, "application/vnd.ms-excel;charset=utf-8");
+      } else {
+        const text = reportToText(payload);
+        const pdf = makeSimplePdf(text);
+        triggerDownload(pdf, `${fileBase}.pdf`, "application/pdf");
+      }
+    } finally {
+      setDownloadPending(false);
+    }
+  }, [payload, report.slug, periodStart, periodEnd, format]);
+
   if (!orgReady) {
     return (
       <div className="flex min-h-0 flex-1 flex-col p-4 text-sm text-[#6B7280]">
@@ -131,6 +370,14 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
       description="Figures below are loaded from your organization for the selected period. Export to PDF or CSV will be added when the reporting pipeline supports file downloads."
       footer={
         <>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={!(hasParams && loadState === "done" && payload != null) || downloadPending}
+            className="h-10 rounded-lg border border-[#D1D5DB] bg-white px-4 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {downloadPending ? "Preparing..." : `Download result (${formatLabel(format)})`}
+          </button>
           <Link
             href={runHrefWithParams}
             className="h-10 rounded-lg border border-[#D1D5DB] bg-white px-4 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]"
@@ -172,6 +419,14 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
             </dt>
             <dd className="mt-1 text-sm font-medium text-[#111827]">
               {formatLabel(format)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+              Report currency
+            </dt>
+            <dd className="mt-1 text-sm font-medium text-[#111827]">
+              {reportCurrency || "—"}
             </dd>
           </div>
           <div>

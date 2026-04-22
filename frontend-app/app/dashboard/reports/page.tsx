@@ -4,7 +4,11 @@ import Link from "next/link";
 import { DashboardListView } from "@/components/dashboard/main-view";
 import { OrgMissingBanner } from "@/components/portfolio/org-missing-banner";
 import { useOrg } from "@/contexts/org-context";
-import { REPORT_GROUPS, reportsForGroup } from "@/lib/reports/catalog";
+import {
+  REPORT_GROUPS,
+  isReportBackendWired,
+  reportsForGroup,
+} from "@/lib/reports/catalog";
 
 export default function ReportsListPage() {
   const { orgReady, orgId } = useOrg();
@@ -39,25 +43,58 @@ export default function ReportsListPage() {
             <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {reportsForGroup(group.id)
                 .sort((a, b) => a.id - b.id)
-                .map((r) => (
-                  <li key={r.slug}>
-                    <Link
-                      href={`/dashboard/reports/${r.slug}/run`}
-                      className="block rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm transition hover:border-brand-navy/30 hover:shadow-md"
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                        #{r.id}
-                      </p>
-                      <p className="mt-1 font-medium text-[#1A1A1A]">{r.title}</p>
-                      <p className="mt-2 text-sm leading-snug text-[#6B7280]">
-                        {r.summary}
-                      </p>
-                      <p className="mt-3 text-sm font-medium text-brand-blue">
-                        Configure run →
-                      </p>
-                    </Link>
-                  </li>
-                ))}
+                .map((r) => {
+                  const backendWired = isReportBackendWired(r.slug);
+                  const baseClassName =
+                    "block rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm transition";
+
+                  if (!backendWired) {
+                    return (
+                      <li key={r.slug}>
+                        <div
+                          className={`${baseClassName} cursor-not-allowed border-dashed opacity-80`}
+                          aria-disabled="true"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                              #{r.id}
+                            </p>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
+                              Coming soon
+                            </span>
+                          </div>
+                          <p className="mt-1 font-medium text-[#1A1A1A]">{r.title}</p>
+                          <p className="mt-2 text-sm leading-snug text-[#6B7280]">
+                            {r.summary}
+                          </p>
+                          <p className="mt-3 text-sm font-medium text-[#9CA3AF]">
+                            Backend integration pending
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  }
+
+                  return (
+                    <li key={r.slug}>
+                      <Link
+                        href={`/dashboard/reports/${r.slug}/run`}
+                        className={`${baseClassName} hover:border-brand-navy/30 hover:shadow-md`}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                          #{r.id}
+                        </p>
+                        <p className="mt-1 font-medium text-[#1A1A1A]">{r.title}</p>
+                        <p className="mt-2 text-sm leading-snug text-[#6B7280]">
+                          {r.summary}
+                        </p>
+                        <p className="mt-3 text-sm font-medium text-brand-blue">
+                          Configure run →
+                        </p>
+                      </Link>
+                    </li>
+                  );
+                })}
             </ul>
           </section>
         ))}

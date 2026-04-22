@@ -19,6 +19,8 @@ class UnitSerializer(serializers.ModelSerializer):
             'unit_type',
             'size',
             'status',
+            'payment_code',
+            'payment_code_status',
             'has_active_lease',
             'address_override_line1',
             'address_override_city',

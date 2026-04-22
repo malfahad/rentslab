@@ -13,6 +13,7 @@ from typing import Any
 from django.db.models import Q, Sum
 
 from expense.models import Expense
+from org.models import Org
 from payment.models import Payment
 
 from .base import decimal_str
@@ -23,6 +24,8 @@ SLUG = 'cash-flow'
 
 def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
     start, end = parse_report_period(params)
+    org = Org.objects.filter(pk=org_id).only('default_currency').first()
+    default_currency = ((org.default_currency if org else 'KES') or 'KES').upper()
 
     payments_qs = Payment.objects.filter(
         org_id=org_id,
@@ -81,6 +84,7 @@ def lookup(*, org_id: int, params: dict[str, Any] | None = None, **kwargs: Any) 
         'slug': SLUG,
         'org_id': org_id,
         'status': 'ok',
+        'report_currency': default_currency,
         'basis': 'cash',
         'period': {
             'start': start.isoformat(),

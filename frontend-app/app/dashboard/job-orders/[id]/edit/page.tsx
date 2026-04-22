@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SearchCombobox } from "@/components/portfolio/search-combobox";
 import { PortfolioFormShell } from "@/components/portfolio/portfolio-form-shell";
@@ -12,25 +12,29 @@ import {
   JOB_ORDER_STATUSES,
 } from "@/lib/constants/job-order-status";
 import { ApiError } from "@/lib/api/errors";
-import { createJobOrder } from "@/services/job-order-service";
+import { getJobOrder, updateJobOrder } from "@/services/job-order-service";
 import { listAllBuildings } from "@/services/building-service";
 import { listAllUnits } from "@/services/unit-service";
 import { listAllVendors } from "@/services/vendor-service";
 import type { BuildingDto, UnitDto } from "@/types/portfolio";
-import type { JobOrderCreate, VendorDto } from "@/types/operations";
+import type { JobOrderDto, JobOrderUpdate, VendorDto } from "@/types/operations";
 
-const FORM_ID = "job-order-create-form";
+const FORM_ID = "job-order-edit-form";
 
 type IdLabel = { id: string; label: string };
 
-export default function JobOrderCreatePage() {
+export default function JobOrderEditPage() {
+  const params = useParams();
   const router = useRouter();
+  const id = Number(params.id);
   const { orgReady, orgId } = useOrg();
+  const [job, setJob] = useState<JobOrderDto | null>(null);
   const [buildings, setBuildings] = useState<BuildingDto[]>([]);
   const [units, setUnits] = useState<UnitDto[]>([]);
   const [vendors, setVendors] = useState<VendorDto[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
 
   const [buildingId, setBuildingId] = useState("");
@@ -45,30 +49,51 @@ export default function JobOrderCreatePage() {
   const [externalReference, setExternalReference] = useState("");
 
   const load = useCallback(async () => {
+    if (!Number.isFinite(id)) {
+      setLoadError("Invalid job order.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     setLoadError(null);
     try {
-      const [b, u, v] = await Promise.all([
+      const [j, b, u, v] = await Promise.all([
+        getJobOrder(id),
         listAllBuildings(),
         listAllUnits(),
         listAllVendors(),
       ]);
-      setBuildings(b.sort((a, b) => a.name.localeCompare(b.name)));
+      setJob(j);
+      setBuildings(b.sort((x, y) => x.name.localeCompare(y.name)));
       setUnits(u);
-      setVendors(v.filter((x) => x.is_active).sort((a, b) => a.name.localeCompare(b.name)));
+      setVendors(v.filter((x) => x.is_active).sort((x, y) => x.name.localeCompare(y.name)));
+
+      setBuildingId(String(j.building));
+      setUnitId(j.unit != null ? String(j.unit) : "");
+      setVendorId(j.vendor != null ? String(j.vendor) : "");
+      setTitle(j.title ?? "");
+      setDescription(j.description ?? "");
+      setJobNumber(j.job_number ?? "");
+      setStatus(j.status || "draft");
+      setPriority(j.priority ?? "");
+      setEstimatedCost(j.estimated_cost ?? "");
+      setExternalReference(j.external_reference ?? "");
     } catch (e) {
       setLoadError(
-        e instanceof ApiError ? e.messageForUser : "Could not load form data.",
+        e instanceof ApiError ? e.messageForUser : "Could not load job order.",
       );
+      setJob(null);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     if (!orgReady || orgId == null) return;
     void load();
   }, [orgReady, orgId, load]);
 
-  const bid =
-    buildingId === "" ? null : Number.parseInt(buildingId, 10);
+  const bid = buildingId === "" ? null : Number.parseInt(buildingId, 10);
 
   const unitsForBuilding = useMemo(() => {
     if (bid == null || !Number.isFinite(bid)) return [];
@@ -126,7 +151,7 @@ export default function JobOrderCreatePage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (orgId == null) return;
+    if (!job) return;
     if (buildingId === "") {
       setFormError("Select a building.");
       return;
@@ -136,32 +161,27 @@ export default function JobOrderCreatePage() {
       setFormError("Enter a title.");
       return;
     }
+
+    const body: JobOrderUpdate = {
+      building: Number.parseInt(buildingId, 10),
+      title: t,
+      status,
+    };
+    body.description = description.trim();
+    body.job_number = jobNumber.trim();
+    body.unit = unitId !== "" ? Number.parseInt(unitId, 10) : null;
+    body.vendor = vendorId !== "" ? Number.parseInt(vendorId, 10) : null;
+    body.priority = priority.trim();
+    body.estimated_cost = estimatedCost.trim() || null;
+    body.external_reference = externalReference.trim();
+
     setPending(true);
     try {
-      const body: JobOrderCreate = {
-        org: orgId,
-        building: Number.parseInt(buildingId, 10),
-        title: t,
-        status,
-      };
-      const d = description.trim();
-      if (d) body.description = d;
-      const jn = jobNumber.trim();
-      if (jn) body.job_number = jn;
-      if (unitId !== "") body.unit = Number.parseInt(unitId, 10);
-      if (vendorId !== "") body.vendor = Number.parseInt(vendorId, 10);
-      const pr = priority.trim();
-      if (pr) body.priority = pr;
-      const ec = estimatedCost.trim();
-      if (ec) body.estimated_cost = ec;
-      const er = externalReference.trim();
-      if (er) body.external_reference = er;
-
-      const created = await createJobOrder(body);
-      router.push(`/dashboard/job-orders/${created.id}`);
+      const updated = await updateJobOrder(job.id, body);
+      router.push(`/dashboard/job-orders/${updated.id}`);
     } catch (err) {
       setFormError(
-        err instanceof ApiError ? err.messageForUser : "Could not create job order.",
+        err instanceof ApiError ? err.messageForUser : "Could not save job order.",
       );
     } finally {
       setPending(false);
@@ -173,7 +193,7 @@ export default function JobOrderCreatePage() {
       <PortfolioFormShell
         backHref="/dashboard/job-orders"
         backLabel="Back to job orders"
-        title="New job order"
+        title="Edit job order"
         footer={null}
       >
         <p className="text-sm text-[#6B7280]">Preparing workspace…</p>
@@ -189,15 +209,45 @@ export default function JobOrderCreatePage() {
     );
   }
 
+  if (loading) {
+    return (
+      <PortfolioFormShell
+        backHref="/dashboard/job-orders"
+        backLabel="Back to job orders"
+        title="Edit job order"
+        footer={null}
+      >
+        <p className="text-sm text-[#6B7280]">Loading job order…</p>
+      </PortfolioFormShell>
+    );
+  }
+
+  if (loadError || !job) {
+    return (
+      <PortfolioFormShell
+        backHref="/dashboard/job-orders"
+        backLabel="Back to job orders"
+        title="Edit job order"
+        footer={
+          <Link href="/dashboard/job-orders" className="btn-secondary-sm">
+            Back
+          </Link>
+        }
+      >
+        <p className="text-sm text-red-800">{loadError ?? "Not found."}</p>
+      </PortfolioFormShell>
+    );
+  }
+
   return (
     <PortfolioFormShell
-      backHref="/dashboard/job-orders"
-      backLabel="Back to job orders"
-      title="New job order"
-      description="Work is scoped to a building; optionally assign a unit and vendor."
+      backHref={`/dashboard/job-orders/${job.id}`}
+      backLabel="Back to job order"
+      title="Edit job order"
+      description={`${job.job_number?.trim() || `#${job.id}`}`}
       footer={
         <>
-          <Link href="/dashboard/job-orders" className="btn-secondary-sm">
+          <Link href={`/dashboard/job-orders/${job.id}`} className="btn-secondary-sm">
             Cancel
           </Link>
           <button
@@ -206,17 +256,12 @@ export default function JobOrderCreatePage() {
             className="btn-primary-sm"
             disabled={pending}
           >
-            {pending ? "Creating…" : "Create job order"}
+            {pending ? "Saving…" : "Save changes"}
           </button>
         </>
       }
     >
-      {loadError ? (
-        <p className="text-sm text-red-800">{loadError}</p>
-      ) : null}
-      {formError ? (
-        <p className="mb-4 text-sm text-red-800">{formError}</p>
-      ) : null}
+      {formError ? <p className="mb-4 text-sm text-red-800">{formError}</p> : null}
 
       <form id={FORM_ID} className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
         <SearchCombobox
@@ -291,9 +336,7 @@ export default function JobOrderCreatePage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="font-medium text-[#374151]">
-              Job number (optional)
-            </span>
+            <span className="font-medium text-[#374151]">Job number (optional)</span>
             <input
               className={inputClass}
               value={jobNumber}
@@ -303,7 +346,7 @@ export default function JobOrderCreatePage() {
             />
           </label>
           <SearchCombobox
-            label="Initial status"
+            label="Status"
             items={statusOptions}
             value={status}
             onChange={setStatus}
