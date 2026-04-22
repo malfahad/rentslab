@@ -4,10 +4,16 @@ import { SiteHeader } from "@/components/site-header";
 export function MarketingPage({
   title,
   children,
+  contentClassName,
 }: {
   title: string;
   children: React.ReactNode;
+  contentClassName?: string;
 }) {
+  const resolvedContentClassName =
+    contentClassName ??
+    "mt-6 max-w-[65ch] space-y-4 text-base leading-relaxed text-[#374151]";
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
@@ -16,9 +22,7 @@ export function MarketingPage({
           <h1 className="font-serif text-3xl font-medium tracking-wide text-brand-navy md:text-4xl">
             {title}
           </h1>
-          <div className="mt-6 max-w-[65ch] space-y-4 text-base leading-relaxed text-[#374151]">
-            {children}
-          </div>
+          <div className={resolvedContentClassName}>{children}</div>
         </div>
       </main>
       <SiteFooter />

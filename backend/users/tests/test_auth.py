@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 from user_role.models import UserRole
 
-from users.models import User
+from users.models import AccessRequest, User
 from users.tests.utils import assert_error_response, assert_success_detail
 from users.tokens import account_activation_token
 
@@ -477,3 +477,31 @@ class AuthMisuseTests(TestCase):
             r.status_code,
             detail_substring='token',
         )
+
+
+class AccessRequestTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_access_request_accepts_email(self):
+        r = self.client.post(
+            '/api/v1/auth/access-requests/',
+            {'email': 'beta@example.com'},
+            format='json',
+        )
+        assert_success_detail(self, r, status.HTTP_201_CREATED, 'Access request received')
+        self.assertEqual(AccessRequest.objects.count(), 1)
+
+    def test_access_request_is_idempotent_per_email(self):
+        self.client.post(
+            '/api/v1/auth/access-requests/',
+            {'email': 'beta@example.com'},
+            format='json',
+        )
+        r = self.client.post(
+            '/api/v1/auth/access-requests/',
+            {'email': 'BETA@example.com'},
+            format='json',
+        )
+        assert_success_detail(self, r, status.HTTP_201_CREATED, 'Access request received')
+        self.assertEqual(AccessRequest.objects.count(), 1)

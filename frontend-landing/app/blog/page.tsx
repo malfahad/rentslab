@@ -10,8 +10,12 @@ export default function BlogPage() {
   return (
     <MarketingPage title="Blog">
       <p>
-        Articles and changelog cross-links will appear here. For product news,
-        check back as we ship.
+        RentSlab publishes product updates, operator notes, and practical guides
+        for running rent operations with fewer surprises.
+      </p>
+      <p>
+        Expect short, useful posts on collections workflows, lease operations,
+        reporting discipline, and what we are shipping next.
       </p>
     </MarketingPage>
   );

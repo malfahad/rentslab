@@ -62,6 +62,14 @@ export type ResetPasswordSuccessResponse = {
   detail: string;
 };
 
+export type AccessRequestCreateRequest = {
+  email: string;
+};
+
+export type AccessRequestCreateSuccessResponse = {
+  detail: string;
+};
+
 /** Minimal user fields stored client-side after login. */
 export type SessionUser = {
   id: number;

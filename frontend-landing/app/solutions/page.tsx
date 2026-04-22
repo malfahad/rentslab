@@ -16,8 +16,9 @@ export default function SolutionsPage() {
         billing, and collections you can reconcile.
       </p>
       <p>
-        Vertical-specific pages (for example residential vs. commercial) can be
-        added here as your go-to-market focus sharpens.
+        RentSlab adapts to how teams actually operate: owners who need oversight,
+        managers who need daily execution, and finance teams who need trusted
+        monthly numbers.
       </p>
     </MarketingPage>
   );

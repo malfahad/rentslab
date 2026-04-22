@@ -15,9 +15,10 @@ export default function ProductPage() {
         ledger so your team sees the same numbers from the rent roll to the bank.
       </p>
       <p>
-        This page will expand with module-level detail aligned with how you work:
-        units and tenants, recurring charges, partial payments, allocations, and
-        role-based access for operations and finance.
+        Core workflows include landlord/building/unit management, tenant and
+        lease lifecycle, invoicing, payment allocation context, credit notes,
+        maintenance-linked expenses, and role-based access for operations and
+        finance.
       </p>
     </MarketingPage>
   );

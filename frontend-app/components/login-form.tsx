@@ -86,9 +86,9 @@ export function LoginForm({ onSubmit, error, pending }: LoginFormProps) {
         New to RentSlab?{" "}
         <Link
           className="font-medium text-brand-navy underline decoration-brand-navy/30 underline-offset-2 hover:decoration-brand-navy"
-          href="/register"
+          href="/beta-access-request"
         >
-          Create an account
+          Request beta access
         </Link>
       </p>
     </form>

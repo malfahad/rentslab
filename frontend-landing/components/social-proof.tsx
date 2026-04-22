@@ -1,9 +1,7 @@
 const integrations = [
   { name: "MTN Mobile Money", src: "/integrations/mtn.svg" },
-  { name: "Airtel Money", src: "/integrations/airtel.svg" },
   { name: "QuickBooks", src: "/integrations/quickbooks.svg" },
   { name: "Stripe", src: "/integrations/stripe.svg" },
-  { name: "DocuSign", src: "/integrations/docusign.svg" },
 ] as const;
 
 export function SocialProof() {

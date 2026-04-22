@@ -21,6 +21,7 @@ urlpatterns = [
     path('payments/', include('payment.urls')),
     path('payment-allocations/', include('payment_allocation.urls')),
     path('payment-links/', include('payment_link.urls')),
+    path('license-payments/', include('license_payment.urls')),
     path('vendors/', include('vendor.urls')),
     path('expense-categories/', include('expense_category.urls')),
     path('job-orders/', include('job_order.urls')),

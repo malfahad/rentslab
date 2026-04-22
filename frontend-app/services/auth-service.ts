@@ -1,4 +1,6 @@
 import type {
+  AccessRequestCreateRequest,
+  AccessRequestCreateSuccessResponse,
   ActivateAccountRequest,
   ActivateAccountSuccessResponse,
   ForgotPasswordRequest,
@@ -54,6 +56,15 @@ export async function resetPassword(
   input: ResetPasswordRequest,
 ): Promise<ResetPasswordSuccessResponse> {
   return apiRequest<ResetPasswordSuccessResponse>("/auth/reset-password/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function createAccessRequest(
+  input: AccessRequestCreateRequest,
+): Promise<AccessRequestCreateSuccessResponse> {
+  return apiRequest<AccessRequestCreateSuccessResponse>("/auth/access-requests/", {
     method: "POST",
     body: input,
   });

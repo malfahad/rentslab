@@ -8,7 +8,8 @@ export type SettingsTabId =
   | "payments-collections"
   | "communications"
   | "maintenance"
-  | "system";
+  | "system"
+  | "license";
 
 export type OutlineNode = {
   label: string;
@@ -147,6 +148,17 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
       { label: "Export formats (CSV, PDF)" },
       { label: "Scheduled & default reports" },
       { label: "Audit logs & data retention policies" },
+    ],
+  },
+  {
+    id: "license",
+    tabLabel: "License",
+    title: "License",
+    outline: [
+      { label: "Credit balance" },
+      { label: "Upcoming" },
+      { label: "Due" },
+      { label: "Previous cycles" },
     ],
   },
 ];

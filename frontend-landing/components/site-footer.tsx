@@ -5,11 +5,11 @@ import { getLoginUrl, getRegisterUrl } from "@/lib/auth-urls";
 const product = [
   { label: "Features", href: "/#features" },
   { label: "Proof", href: "/#proof" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Pricing", href: "/pricing" },
 ];
 
 const company = [
-  { label: "About", href: "#" },
+  { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -94,9 +94,14 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-8 md:flex-row md:items-center md:justify-between">
-          <p className="text-xs text-blue-300/80">
-            © {new Date().getFullYear()} RentSlab. All rights reserved.
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-blue-300/80">
+              © {new Date().getFullYear()} RentSlab. All rights reserved.
+            </p>
+            <p className="text-xs text-blue-300/70">
+              P.O. Box 204238 Kampala GPO · TIN 1057084798
+            </p>
+          </div>
           <div className="flex gap-4" aria-label="Social">
             <a
               href="#"

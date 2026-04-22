@@ -10,8 +10,13 @@ export default function CustomersPage() {
   return (
     <MarketingPage title="Customers">
       <p>
-        Case studies and quotes will live here once we publish named stories.
-        Until then, the home page highlights how teams use RentSlab day to day.
+        Property managers, landlords, and finance teams use RentSlab to run
+        portfolios with fewer handoffs and cleaner month-end workflows.
+      </p>
+      <p>
+        The strongest patterns are consistent: better rent roll visibility,
+        faster reconciliation, and clearer accountability across operations and
+        finance.
       </p>
     </MarketingPage>
   );

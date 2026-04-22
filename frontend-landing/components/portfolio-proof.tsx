@@ -7,7 +7,7 @@ const proofPoints = [
   {
     label: "Track every payment, wherever it came from",
     detail:
-      "MoMo, Airtel, bank transfer, cash — every payment matched to the right invoice, automatically.",
+      "MoMo, bank transfer, and cash records flow into one place with clear invoice allocation context.",
   },
   {
     label: "Close your books without the back-and-forth",

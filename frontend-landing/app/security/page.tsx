@@ -13,8 +13,12 @@ export default function SecurityPage() {
       <p>
         RentSlab is built for finance-grade expectations: access control by
         organization and role, audit-friendly workflows, and careful handling of
-        customer data. A fuller security overview, including subprocessors and
-        compliance posture, will be published here after legal review.
+        customer data.
+      </p>
+      <p>
+        We are preparing a deeper security overview covering controls,
+        subprocessors, and compliance posture. For due diligence in active
+        evaluations, contact the team and we will share the latest materials.
       </p>
     </MarketingPage>
   );

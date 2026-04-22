@@ -12,11 +12,11 @@ export function PricingAnchor() {
           id="pricing-heading"
           className="font-serif text-2xl font-medium tracking-wide text-brand-navy md:text-3xl"
         >
-          You could have your first property live today
+          You could start onboarding your first property today
         </h2>
         <p className="mx-auto mt-3 max-w-lg text-[#374151]">
-          No onboarding calls. No implementation fees. Add your units, connect
-          your payment channels, and start seeing your portfolio clearly.
+          No implementation fees. Add your units, set up your team, and start
+          getting clean visibility into occupancy, billing, and collections.
         </p>
         <AuthCtas theme="light" className="mt-8 justify-center" />
       </div>

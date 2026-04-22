@@ -9,19 +9,25 @@ import {
   SETTINGS_TABS,
   type SettingsTabId,
 } from "@/lib/settings/settings-tabs-config";
+import { LicenseSettingsPanel } from "./license-settings-panel";
 import { OrganizationSettingsPanel } from "./organization-settings-panel";
-import { OutlineTree } from "./outline-tree";
 
 const TAB_PARAM = "tab";
+const ENABLED_TABS: SettingsTabId[] = ["organization", "license"];
 
 export function SettingsTabbedView() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const visibleTabs = useMemo(
+    () => SETTINGS_TABS.filter((t) => ENABLED_TABS.includes(t.id)),
+    [],
+  );
 
   const activeTab: SettingsTabId = useMemo(() => {
     const raw = searchParams.get(TAB_PARAM);
-    return isSettingsTabId(raw) ? raw : defaultSettingsTabId();
+    if (isSettingsTabId(raw) && ENABLED_TABS.includes(raw)) return raw;
+    return defaultSettingsTabId();
   }, [searchParams]);
 
   const setTab = useCallback(
@@ -33,7 +39,10 @@ export function SettingsTabbedView() {
     [pathname, router, searchParams],
   );
 
-  const tabDef = SETTINGS_TABS.find((t) => t.id === activeTab) ?? SETTINGS_TABS[0];
+  const tabDef =
+    visibleTabs.find((t) => t.id === activeTab) ??
+    visibleTabs[0] ??
+    SETTINGS_TABS[0];
 
   return (
     <DashboardListView
@@ -51,7 +60,7 @@ export function SettingsTabbedView() {
               role="tablist"
               aria-label="Settings sections"
             >
-              {SETTINGS_TABS.map((t) => {
+              {visibleTabs.map((t) => {
                 const selected = t.id === activeTab;
                 return (
                   <button
@@ -98,25 +107,9 @@ export function SettingsTabbedView() {
                   <OrganizationSettingsPanel />
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-dashed border-[#E5E7EB] pb-4">
-                  <h2 className="font-serif text-lg font-medium text-brand-navy">
-                    {tabDef.title}
-                  </h2>
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900 ring-1 ring-amber-200/80">
-                    Coming soon
-                  </span>
-                </div>
-                <p className="mt-4 text-sm text-[#6B7280]">
-                  The following areas are planned for this section. Editing will be
-                  enabled in a future release.
-                </p>
-                <div className="mt-6 rounded-lg border border-dashed border-[#D1D5DB] bg-[#FAFAFA] p-4 md:p-5">
-                  <OutlineTree nodes={tabDef.outline} />
-                </div>
-              </>
-            )}
+            ) : tabDef.id === "license" ? (
+              <LicenseSettingsPanel />
+            ) : null}
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ import uuid
 
 from rest_framework import serializers
 
-from .models import User
+from .models import AccessRequest, User
 
 
 def _unique_username_from_email(email: str) -> str:
@@ -79,3 +79,14 @@ class DeleteAccountSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError('Password is incorrect.')
         return value
+
+
+class AccessRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value: str) -> str:
+        return value.lower()
+
+    def create(self, validated_data):
+        access_request, _ = AccessRequest.objects.get_or_create(email=validated_data['email'])
+        return access_request

@@ -4,7 +4,7 @@ import { getDemoUrl, getLoginUrl, getRegisterUrl } from "@/lib/auth-urls";
 const nav = [
   { label: "Product", href: "/#features" },
   { label: "Proof", href: "/#proof" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Pricing", href: "/pricing" },
 ];
 
 export function SiteHeader() {

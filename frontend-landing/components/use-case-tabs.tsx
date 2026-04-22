@@ -17,7 +17,7 @@ const cases = [
     label: "Property managers",
     bullets: [
       "Leases, renewals, and handovers per unit",
-      "Tenant messages and files in one place",
+      "Tenant records and lease history in one place",
       "Maintenance tickets tied to the right unit",
     ],
   },
@@ -26,7 +26,7 @@ const cases = [
     label: "Finance teams",
     bullets: [
       "Payments matched to invoices and rent lines",
-      "Exports for management and year-end",
+      "Collections visibility with payment attempts and balances",
       "Audit trail of who changed what and when",
     ],
   },

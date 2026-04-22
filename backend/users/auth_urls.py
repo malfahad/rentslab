@@ -2,6 +2,7 @@ from django.urls import path
 
 from .auth_views import (
     ActivateAccountView,
+    AccessRequestView,
     DeleteAccountView,
     ForgotPasswordView,
     JWTTokenRefreshView,
@@ -13,6 +14,7 @@ from .auth_views import (
 )
 
 urlpatterns = [
+    path('access-requests/', AccessRequestView.as_view(), name='auth-access-requests'),
     path('register/', RegisterView.as_view(), name='auth-register'),
     path('login/', LoginView.as_view(), name='auth-login'),
     path('token/refresh/', JWTTokenRefreshView.as_view(), name='auth-token-refresh'),

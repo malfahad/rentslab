@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'payment',
     'payment_allocation',
     'payment_link',
+    'license_payment',
     'vendor',
     'expense_category',
     'job_order',

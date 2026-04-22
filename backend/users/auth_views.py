@@ -17,6 +17,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .auth_serializers import (
     ActivateAccountSerializer,
+    AccessRequestSerializer,
     DeleteAccountSerializer,
     ForgotPasswordSerializer,
     LoginSerializer,
@@ -184,6 +185,19 @@ class DeleteAccountView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.soft_delete()
         return Response({'detail': 'Account deleted.'}, status=status.HTTP_200_OK)
+
+
+class AccessRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = AccessRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {'detail': 'Access request received. We will contact you soon.'},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class JWTTokenRefreshView(TokenRefreshView):

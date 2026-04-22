@@ -36,3 +36,15 @@ class User(AbstractUser):
         self.deleted_at = timezone.now()
         self.email = f'deleted_{self.pk}_{uuid.uuid4().hex}@invalid.local'
         self.save()
+
+
+class AccessRequest(models.Model):
+    """Email capture for invite-only beta onboarding."""
+
+    email = models.EmailField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'access_requests'
+        ordering = ['-created_at']
