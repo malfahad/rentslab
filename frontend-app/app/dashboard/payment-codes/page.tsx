@@ -51,7 +51,11 @@ export default function PaymentCodesPage() {
   );
 
   if (!orgReady) {
-    return <DashboardListView title="Payment Codes" description="Loading workspace..." />;
+    return (
+      <DashboardListView title="Payment Codes" description="Loading workspace…">
+        <p className="text-sm text-[#6B7280]">Preparing workspace…</p>
+      </DashboardListView>
+    );
   }
   if (orgId == null) {
     return (
