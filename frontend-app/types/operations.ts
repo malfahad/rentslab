@@ -58,6 +58,7 @@ export type TenantUpdate = Partial<{
 
 export type LeaseDto = {
   id: number;
+  public_doc_id?: string;
   unit: number;
   tenant: number;
   /** Read-only labels from API when present. */
