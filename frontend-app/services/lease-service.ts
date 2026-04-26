@@ -1,4 +1,5 @@
 import { apiRequestAuthed } from "@/lib/api/authed-client";
+import { apiRequest } from "@/lib/api/client";
 import { buildQuery } from "@/lib/api/query";
 import type { PaginatedResponse } from "@/types/api";
 import type { LeaseCreate, LeaseDto, LeaseUpdate } from "@/types/operations";
@@ -84,4 +85,8 @@ export async function closeLease(
     method: "POST",
     body: body ?? {},
   });
+}
+
+export async function getPublicLeaseDocument(hashedDocId: string): Promise<unknown> {
+  return apiRequest(`/leases/public-docs/${hashedDocId}/`, { cache: "no-store" });
 }

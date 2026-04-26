@@ -16,8 +16,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from access.pagination import StandardPagination
 from access.permissions import IsOrgAdminOrgHeader, RequiresOrgContext
@@ -25,7 +27,9 @@ from access.services import get_org_id_from_request
 from access.view_mixins import OrgScopedViewSetMixin
 
 from credit_note.models import CreditNote
+from invoice_line_item.models import InvoiceLineItem
 from payment_allocation.models import PaymentAllocation
+from service_subscription.models import ServiceSubscription
 
 from .filters import InvoiceFilter
 from .issue_serializers import IssueInvoicesRequestSerializer
@@ -127,3 +131,143 @@ class InvoiceViewSet(OrgScopedViewSetMixin, viewsets.ModelViewSet):
         dry_run = ser.validated_data.get('dry_run', False)
         result = issue_invoices_for_org(org_id, as_of=as_of, dry_run=dry_run)
         return Response(result, status=status.HTTP_200_OK)
+
+
+class PublicInvoiceDocumentView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, hashed_doc_id: str):
+        invoice_id = Invoice.decode_public_doc_id(hashed_doc_id)
+        if invoice_id is None:
+            return Response({'detail': 'Invoice document not found.'}, status=404)
+        invoice = (
+            Invoice.objects.select_related(
+                'org',
+                'lease',
+                'lease__tenant',
+                'lease__unit',
+                'lease__unit__building',
+                'lease__unit__building__landlord',
+            )
+            .filter(pk=invoice_id)
+            .first()
+        )
+        if invoice is None:
+            return Response({'detail': 'Invoice document not found.'}, status=404)
+
+        line_items = list(
+            InvoiceLineItem.objects.filter(invoice=invoice)
+            .select_related('service')
+            .order_by('line_number', 'id')
+            .values(
+                'id',
+                'line_number',
+                'description',
+                'amount',
+                'billing_period_start',
+                'billing_period_end',
+                'service__name',
+            )
+        )
+        subs = list(
+            ServiceSubscription.objects.filter(lease=invoice.lease)
+            .select_related('service')
+            .order_by('id')
+            .values('id', 'service', 'service__name', 'rate', 'currency', 'billing_cycle')
+        )
+        building = invoice.lease.unit.building
+        landlord = building.landlord
+        org = invoice.org
+        return Response(
+            {
+                'invoice': InvoiceSerializer(invoice).data,
+                'line_items': [
+                    {
+                        'id': row['id'],
+                        'line_number': row['line_number'],
+                        'description': row['description'],
+                        'amount': str(row['amount']),
+                        'billing_period_start': row['billing_period_start'],
+                        'billing_period_end': row['billing_period_end'],
+                        'service_name': row['service__name'],
+                    }
+                    for row in line_items
+                ],
+                'lease': {
+                    'id': invoice.lease.id,
+                    'start_date': invoice.lease.start_date,
+                    'end_date': invoice.lease.end_date,
+                    'rent_amount': str(invoice.lease.rent_amount),
+                    'rent_currency': invoice.lease.rent_currency,
+                },
+                'tenant': {
+                    'id': invoice.lease.tenant.id,
+                    'name': invoice.lease.tenant.name,
+                    'email': invoice.lease.tenant.email,
+                    'phone': invoice.lease.tenant.phone,
+                    'address_line1': invoice.lease.tenant.address_line1,
+                    'address_line2': invoice.lease.tenant.address_line2,
+                    'city': invoice.lease.tenant.city,
+                    'region': invoice.lease.tenant.region,
+                    'postal_code': invoice.lease.tenant.postal_code,
+                    'country_code': invoice.lease.tenant.country_code,
+                },
+                'unit': {
+                    'id': invoice.lease.unit.id,
+                    'unit_number': invoice.lease.unit.unit_number,
+                    'unit_type': invoice.lease.unit.unit_type,
+                    'floor': invoice.lease.unit.floor,
+                    'size': str(invoice.lease.unit.size) if invoice.lease.unit.size is not None else None,
+                    'payment_code': invoice.lease.unit.payment_code,
+                },
+                'building': {
+                    'id': building.id,
+                    'name': building.name,
+                    'address_line1': building.address_line1,
+                    'address_line2': building.address_line2,
+                    'city': building.city,
+                    'region': building.region,
+                    'postal_code': building.postal_code,
+                    'country_code': building.country_code,
+                },
+                'landlord': {
+                    'id': landlord.id,
+                    'name': landlord.name,
+                    'legal_name': landlord.legal_name,
+                    'email': landlord.email,
+                    'phone': landlord.phone,
+                    'address_line1': landlord.address_line1,
+                    'address_line2': landlord.address_line2,
+                    'city': landlord.city,
+                    'region': landlord.region,
+                    'postal_code': landlord.postal_code,
+                    'country_code': landlord.country_code,
+                },
+                'org': (
+                    {
+                        'id': org.id,
+                        'name': org.name,
+                        'address_line1': org.address_line1,
+                        'address_line2': org.address_line2,
+                        'city': org.city,
+                        'region': org.region,
+                        'postal_code': org.postal_code,
+                        'country_code': org.country_code,
+                        'settings': org.settings if isinstance(org.settings, dict) else {},
+                    }
+                    if org is not None
+                    else None
+                ),
+                'subscriptions': [
+                    {
+                        'id': row['id'],
+                        'service': row['service'],
+                        'service_name': row['service__name'],
+                        'rate': str(row['rate']),
+                        'currency': row['currency'],
+                        'billing_cycle': row['billing_cycle'],
+                    }
+                    for row in subs
+                ],
+            }
+        )

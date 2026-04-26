@@ -314,6 +314,16 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
 
   const listHref = "/dashboard/reports";
   const runHref = `/dashboard/reports/${report.slug}/run`;
+  const docsHrefWithParams = (() => {
+    const qs = new URLSearchParams();
+    if (periodStart) qs.set("periodStart", periodStart);
+    if (periodEnd) qs.set("periodEnd", periodEnd);
+    if (format) qs.set("format", format);
+    if (scope) qs.set("scope", scope);
+    qs.set("export", "print");
+    const s = qs.toString();
+    return `/docs/report/${report.slug}${s ? `?${s}` : ""}`;
+  })();
   const runHrefWithParams = (() => {
     const qs = new URLSearchParams();
     if (periodStart) qs.set("periodStart", periodStart);
@@ -452,6 +462,14 @@ export function ReportResultClient({ report }: { report: ReportDefinition }) {
           >
             {downloadPending ? "Preparing..." : `Download result (${formatLabel(format)})`}
           </button>
+          <Link
+            href={docsHrefWithParams}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-10 rounded-lg border border-[#D1D5DB] bg-white px-4 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]"
+          >
+            Print report
+          </Link>
           <Link
             href={runHrefWithParams}
             className="h-10 rounded-lg border border-[#D1D5DB] bg-white px-4 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]"

@@ -7,14 +7,19 @@ from .models import Invoice
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
+    public_doc_id = serializers.SerializerMethodField()
     tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
     lease_label = serializers.SerializerMethodField()
     outstanding_amount = serializers.SerializerMethodField()
+
+    def get_public_doc_id(self, obj: Invoice) -> str:
+        return Invoice.encode_public_doc_id(obj.pk)
 
     class Meta:
         model = Invoice
         fields = [
             'id',
+            'public_doc_id',
             'lease',
             'org',
             'tenant_name',

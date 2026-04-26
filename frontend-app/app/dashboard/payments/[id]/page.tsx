@@ -157,7 +157,7 @@ export default function PaymentDetailPage() {
           <>
             {p.public_receipt_id ? (
               <Link
-                href={`/receipts/${p.public_receipt_id}?export=print`}
+                href={`/docs/receipt/${p.public_receipt_id}?export=print`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-secondary w-full"
