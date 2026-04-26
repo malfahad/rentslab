@@ -20,6 +20,7 @@ export type OrgDto = {
   region: string;
   postal_code: string;
   country_code: string;
+  sms_notifications_enabled: boolean;
   created_at: string;
   updated_at: string;
 };

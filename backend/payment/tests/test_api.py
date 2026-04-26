@@ -1,6 +1,13 @@
 from decimal import Decimal
 
-from test_helpers import auth_client_for_org, create_invoice, create_lease
+from payment.models import Payment
+from test_helpers import (
+    auth_client_for_org,
+    create_invoice,
+    create_lease,
+    create_payment,
+    create_payment_allocation,
+)
 from testing_common import DRFTestCase
 
 
@@ -49,3 +56,35 @@ class PaymentAPITests(DRFTestCase):
         rows = PaymentAllocation.objects.filter(payment_id=created['id'])
         assert rows.count() == 1
         assert rows.first().amount_applied == Decimal('200.00')
+
+    def test_public_receipt_endpoint(self):
+        lease = create_lease()
+        org = lease.unit.building.org
+        org.name = 'Acme Rentals'
+        org.phone = '+256700000111'
+        org.address_line1 = 'Kampala Road'
+        org.city = 'Kampala'
+        org.save(update_fields=['name', 'phone', 'address_line1', 'city'])
+        payment = create_payment(
+            org=org,
+            tenant=lease.tenant,
+            lease=lease,
+            amount=Decimal('300.00'),
+            reference='PMT-123',
+        )
+        invoice = create_invoice(lease=lease, org=org, invoice_number='INV-2026-001')
+        create_payment_allocation(payment=payment, invoice=invoice, amount_applied=Decimal('300.00'))
+        receipt_id = Payment.encode_public_receipt_id(payment.id)
+
+        resp = self.client.get(f'/api/v1/payments/public-receipts/{receipt_id}/')
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload['payment_id'] == payment.id
+        assert payload['receipt_id'] == receipt_id
+        assert payload['title'] == 'Payment Receipt'
+        assert payload['org']['name'] == 'Acme Rentals'
+        assert payload['rows'][0]['item'] == 'INV-2026-001'
+
+    def test_public_receipt_endpoint_rejects_invalid_token(self):
+        resp = self.client.get('/api/v1/payments/public-receipts/not-a-valid-token/')
+        assert resp.status_code == 404

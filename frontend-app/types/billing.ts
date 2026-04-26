@@ -93,6 +93,7 @@ export type PaymentCreate = {
 
 export type PaymentDto = {
   id: number;
+  public_receipt_id?: string;
   org: number;
   tenant: number;
   tenant_name?: string;
@@ -124,4 +125,37 @@ export type PaymentAllocationDto = {
   invoice_total_amount?: string;
   invoice_status?: string;
   created_at: string;
+};
+
+export type PublicReceiptRowDto = {
+  item: string;
+  timestamp: string;
+  quantity: string;
+  sales_ugx: string;
+};
+
+export type PublicReceiptDto = {
+  receipt_id: string;
+  payment_id: number;
+  date_time: string;
+  org: {
+    location: string;
+    name: string;
+    address: string;
+    telephone: string;
+  };
+  title: string;
+  subtitle: string;
+  page: {
+    current: number;
+    total: number;
+  };
+  operator_name: string;
+  rows: PublicReceiptRowDto[];
+  subtotal_ugx: string;
+  grand_total_ugx: string;
+  footer_reference: string;
+  tenant_name: string;
+  reference: string;
+  method: string;
 };

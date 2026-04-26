@@ -174,5 +174,11 @@ SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', 'support@rentslab.com')
 # Optional absolute origin for auth links in emails, e.g. https://app.example.com
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3003')
 
+# Transactional SMS (app_services.sms)
+SMS_BACKEND = os.getenv('SMS_BACKEND', 'app_services.sms.backends.ConsoleSmsBackend')
+SMS_DEFAULT_SENDER = os.getenv('SMS_DEFAULT_SENDER', SITE_NAME)
+SMS_AT_API_KEY = os.getenv('SMS_AT_API_KEY', os.getenv('AT_PROVIDER_API_KEY', ''))
+SMS_AT_USERNAME = os.getenv('SMS_AT_USERNAME', 'sandbox')
+
 # New orgs created on self-service registration (users.signals)
 DEFAULT_NEW_ORG_TYPE = os.getenv('DEFAULT_NEW_ORG_TYPE', 'property_manager')
