@@ -104,6 +104,7 @@ export default function InvoiceDocumentPage() {
       const run = async () => {
         const html2pdf = (await import("html2pdf.js")).default;
         const target = rootRef.current;
+        if (!target) return;
         await html2pdf()
           .from(target)
           .set({
