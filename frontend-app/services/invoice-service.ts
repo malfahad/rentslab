@@ -1,4 +1,5 @@
 import { apiRequestAuthed } from "@/lib/api/authed-client";
+import { apiRequest } from "@/lib/api/client";
 import { buildQuery } from "@/lib/api/query";
 import type { PaginatedResponse } from "@/types/api";
 import type { InvoiceDto, IssueInvoicesResultDto } from "@/types/billing";
@@ -96,4 +97,8 @@ export async function issueInvoices(
     method: "POST",
     body: body ?? {},
   });
+}
+
+export async function getPublicInvoiceDocument(hashedDocId: string): Promise<unknown> {
+  return apiRequest(`/invoices/public-docs/${hashedDocId}/`, { cache: "no-store" });
 }

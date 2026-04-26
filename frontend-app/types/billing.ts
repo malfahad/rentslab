@@ -2,6 +2,7 @@
 
 export type InvoiceDto = {
   id: number;
+  public_doc_id?: string;
   lease: number;
   org: number | null;
   tenant_name?: string;
@@ -93,6 +94,7 @@ export type PaymentCreate = {
 
 export type PaymentDto = {
   id: number;
+  public_receipt_id?: string;
   org: number;
   tenant: number;
   tenant_name?: string;
@@ -124,4 +126,78 @@ export type PaymentAllocationDto = {
   invoice_total_amount?: string;
   invoice_status?: string;
   created_at: string;
+};
+
+export type PublicReceiptRowDto = {
+  item: string;
+  timestamp: string;
+  quantity: string;
+  sales_ugx: string;
+};
+
+export type PublicReceiptInvoiceLineBreakdownDto = {
+  line_item_id: number | null;
+  line_number: number;
+  description: string;
+  line_kind: "rent" | "subscription";
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  base_amount_ugx: string;
+  allocated_amount_ugx: string;
+};
+
+export type PublicReceiptInvoiceBreakdownDto = {
+  invoice_id: number;
+  invoice_number: string;
+  invoice_total_ugx: string;
+  allocated_amount_ugx: string;
+  allocated_rent_ugx: string;
+  allocated_subscription_ugx: string;
+  line_items: PublicReceiptInvoiceLineBreakdownDto[];
+};
+
+export type PublicReceiptDto = {
+  receipt_id: string;
+  payment_id: number;
+  date_time: string;
+  issued_date_time: string;
+  org: {
+    location: string;
+    name: string;
+    address: string;
+    telephone: string;
+  };
+  landlord: {
+    name: string;
+    contact: string;
+  };
+  building: {
+    name: string;
+    address: string;
+  };
+  title: string;
+  subtitle: string;
+  page: {
+    current: number;
+    total: number;
+  };
+  operator_name: string;
+  rows: PublicReceiptRowDto[];
+  subtotal_ugx: string;
+  grand_total_ugx: string;
+  footer_reference: string;
+  tenant_name: string;
+  tenant_contact: string;
+  unit_number: string;
+  period_start: string | null;
+  period_end: string | null;
+  rent_amount_ugx: string;
+  subscription_charge_ugx: string;
+  status: "paid_in_full" | "partial";
+  balance_due_ugx: string;
+  notes: string;
+  issued_by: string;
+  invoice_breakdown: PublicReceiptInvoiceBreakdownDto[];
+  reference: string;
+  method: string;
 };

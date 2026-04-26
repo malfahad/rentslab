@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           1. Introduction
         </h2>
         <p>
-          RentSlab ("we," "our," or "us") is property management software built
+          RentSlab (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is property management software built
           to help landlords, property managers, and real estate teams run rental
           operations efficiently.
         </p>
@@ -226,7 +226,7 @@ export default function PrivacyPage() {
 
       <section className="space-y-3">
         <h2 className="font-serif text-2xl font-medium tracking-wide text-brand-navy">
-          13. Children's privacy
+          13. Children&apos;s privacy
         </h2>
         <p>
           RentSlab is not intended for individuals under 18 years of age. We do

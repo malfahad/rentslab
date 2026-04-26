@@ -155,6 +155,16 @@ export default function PaymentDetailPage() {
       suggestedActions={
         p ? (
           <>
+            {p.public_receipt_id ? (
+              <Link
+                href={`/docs/receipt/${p.public_receipt_id}?export=print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary w-full"
+              >
+                Print receipt
+              </Link>
+            ) : null}
             <Link
               href={`/dashboard/tenants/${p.tenant}`}
               className="btn-secondary w-full"

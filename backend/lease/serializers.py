@@ -11,9 +11,14 @@ CLOSED_LIKE_STATUSES = frozenset({'closed', 'terminated'})
 
 
 class LeaseSerializer(serializers.ModelSerializer):
+    public_doc_id = serializers.SerializerMethodField()
     rent_currency = serializers.CharField(required=False, allow_blank=True, max_length=3, default='')
     deposit_currency = serializers.CharField(required=False, allow_blank=True, max_length=3, default='')
     building_name = serializers.CharField(source='unit.building.name', read_only=True)
+    landlord_name = serializers.CharField(source='unit.building.landlord.name', read_only=True)
+    landlord_phone = serializers.CharField(source='unit.building.landlord.phone', read_only=True)
+    landlord_email = serializers.CharField(source='unit.building.landlord.email', read_only=True)
+    landlord_address = serializers.SerializerMethodField()
     tenant_name = serializers.CharField(source='tenant.name', read_only=True)
     managed_by_name = serializers.SerializerMethodField()
     unit_label = serializers.SerializerMethodField()
@@ -22,10 +27,15 @@ class LeaseSerializer(serializers.ModelSerializer):
         model = Lease
         fields = [
             'id',
+            'public_doc_id',
             'unit',
             'tenant',
             'managed_by',
             'building_name',
+            'landlord_name',
+            'landlord_phone',
+            'landlord_email',
+            'landlord_address',
             'tenant_name',
             'managed_by_name',
             'unit_label',
@@ -48,6 +58,23 @@ class LeaseSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_public_doc_id(self, obj: Lease) -> str:
+        return Lease.encode_public_doc_id(obj.pk)
+
+    def get_landlord_address(self, obj):
+        landlord = getattr(getattr(getattr(obj, 'unit', None), 'building', None), 'landlord', None)
+        if landlord is None:
+            return ''
+        parts = [
+            landlord.address_line1,
+            landlord.address_line2,
+            ', '.join(
+                [part for part in [landlord.city, landlord.region, landlord.postal_code] if part]
+            ),
+            landlord.country_code,
+        ]
+        return ', '.join([p.strip() for p in parts if p and p.strip()])
 
     def get_managed_by_name(self, obj):
         u = obj.managed_by

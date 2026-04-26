@@ -1,7 +1,8 @@
 import { apiRequestAuthed } from "@/lib/api/authed-client";
+import { apiRequest } from "@/lib/api/client";
 import { buildQuery } from "@/lib/api/query";
 import type { PaginatedResponse } from "@/types/api";
-import type { PaymentCreate, PaymentDto } from "@/types/billing";
+import type { PaymentCreate, PaymentDto, PublicReceiptDto } from "@/types/billing";
 
 export type ListPaymentsParams = {
   page?: number;
@@ -43,5 +44,11 @@ export async function createPayment(body: PaymentCreate): Promise<PaymentDto> {
   return apiRequestAuthed<PaymentDto>("/payments/", {
     method: "POST",
     body,
+  });
+}
+
+export async function getPublicReceipt(hashedPaymentId: string): Promise<PublicReceiptDto> {
+  return apiRequest<PublicReceiptDto>(`/payments/public-receipts/${hashedPaymentId}/`, {
+    cache: "no-store",
   });
 }

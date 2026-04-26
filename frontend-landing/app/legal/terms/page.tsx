@@ -24,7 +24,7 @@ export default function TermsPage() {
           1. Agreement to terms
         </h2>
         <p>
-          These Terms of Service ("Terms") govern your access to and use of
+          These Terms of Service (&quot;Terms&quot;) govern your access to and use of
           RentSlab, including our website, software, and related services. By
           using RentSlab, you agree to these Terms.
         </p>
@@ -165,7 +165,7 @@ export default function TermsPage() {
           11. Disclaimers
         </h2>
         <p>
-          RentSlab is provided on an "as available" basis. To the maximum extent
+          RentSlab is provided on an &quot;as available&quot; basis. To the maximum extent
           permitted by law, we disclaim implied warranties including fitness for
           a particular purpose, merchantability, and non-infringement.
         </p>

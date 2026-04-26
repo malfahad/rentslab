@@ -17,6 +17,7 @@ def create_org(**kwargs: Any):
     return Org.objects.create(
         name=kwargs.get('name', 'Test Org'),
         org_type=kwargs.get('org_type', 'property_manager'),
+        sms_notifications_enabled=kwargs.get('sms_notifications_enabled', True),
     )
 
 
@@ -120,6 +121,8 @@ def create_tenant(org=None, **kwargs):
         org=org,
         name=kwargs.get('name', 'Test Tenant'),
         tenant_type=kwargs.get('tenant_type', 'individual'),
+        email=kwargs.get('email', ''),
+        phone=kwargs.get('phone', ''),
     )
 
 
@@ -137,7 +140,9 @@ def create_lease(unit=None, tenant=None, managed_by=None, **kwargs):
         start_date=kwargs.get('start_date', date(2025, 1, 1)),
         end_date=kwargs.get('end_date'),
         rent_amount=kwargs.get('rent_amount', Decimal('1000.00')),
+        rent_currency=kwargs.get('rent_currency', ''),
         deposit_amount=kwargs.get('deposit_amount'),
+        deposit_currency=kwargs.get('deposit_currency', ''),
         billing_cycle=kwargs.get('billing_cycle', 'monthly'),
         status=kwargs.get('status', 'active'),
     )

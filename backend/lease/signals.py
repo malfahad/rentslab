@@ -5,6 +5,8 @@ from __future__ import annotations
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
+from app_services.sms.tenant_notifications import send_lease_activated_sms, send_lease_closed_sms
+
 from .models import Lease
 
 
@@ -24,7 +26,7 @@ def sync_unit_occupancy(unit_id: int) -> None:
         Unit.objects.filter(pk=unit_id).exclude(status='maintenance').update(status='vacant')
 
 
-@receiver(pre_save, sender=Lease)
+@receiver(pre_save, sender=Lease, dispatch_uid='lease_cache_previous_presave_v1')
 def lease_cache_previous(sender, instance: Lease, **kwargs) -> None:
     if instance.pk:
         try:
@@ -39,16 +41,21 @@ def lease_cache_previous(sender, instance: Lease, **kwargs) -> None:
         instance._lease_prev_status = None
 
 
-@receiver(post_save, sender=Lease)
+@receiver(post_save, sender=Lease, dispatch_uid='lease_sync_and_sms_post_save_v1')
 def lease_post_save(sender, instance: Lease, **kwargs) -> None:
     unit_ids: set[int] = {instance.unit_id}
     prev = getattr(instance, '_lease_prev_unit_id', None)
+    prev_status = getattr(instance, '_lease_prev_status', None)
     if prev and prev != instance.unit_id:
         unit_ids.add(prev)
     for uid in unit_ids:
         sync_unit_occupancy(uid)
+    if instance.status == 'active' and prev_status != 'active':
+        send_lease_activated_sms(instance)
+    elif instance.status in {'closed', 'terminated'} and prev_status != instance.status:
+        send_lease_closed_sms(instance)
 
 
-@receiver(post_delete, sender=Lease)
+@receiver(post_delete, sender=Lease, dispatch_uid='lease_sync_unit_post_delete_v1')
 def lease_post_delete(sender, instance: Lease, **kwargs) -> None:
     sync_unit_occupancy(instance.unit_id)

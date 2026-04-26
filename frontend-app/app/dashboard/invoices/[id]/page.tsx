@@ -123,6 +123,14 @@ export default function InvoiceDetailPage() {
         inv ? (
           <>
             <Link
+              href={`/docs/invoice/${inv.public_doc_id || inv.id}?export=print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary w-full"
+            >
+              Print invoice
+            </Link>
+            <Link
               href={`/dashboard/leases/${inv.lease}`}
               className="btn-primary w-full"
             >

@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+
+from django.conf import settings
 from django.db import models
 
 
@@ -34,3 +38,32 @@ class Payment(models.Model):
             models.Index(fields=['org', 'payment_date'], name='payment_org_date_idx'),
             models.Index(fields=['tenant', 'payment_date'], name='payment_tenant_date_idx'),
         ]
+
+    @staticmethod
+    def _public_receipt_signature(raw_id: int) -> str:
+        digest = hmac.new(
+            key=settings.SECRET_KEY.encode('utf-8'),
+            msg=f'payment-receipt:{raw_id}'.encode('utf-8'),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        return digest[:16]
+
+    @classmethod
+    def encode_public_receipt_id(cls, payment_id: int) -> str:
+        base_id = format(payment_id, 'x')
+        return f'{base_id}{cls._public_receipt_signature(payment_id)}'
+
+    @classmethod
+    def decode_public_receipt_id(cls, hashed_payment_id: str) -> int | None:
+        token = (hashed_payment_id or '').strip().lower()
+        if len(token) <= 16:
+            return None
+        base_id, sig = token[:-16], token[-16:]
+        try:
+            payment_id = int(base_id, 16)
+        except ValueError:
+            return None
+        expected_sig = cls._public_receipt_signature(payment_id)
+        if not hmac.compare_digest(sig, expected_sig):
+            return None
+        return payment_id

@@ -196,6 +196,14 @@ export default function LeaseDetailPage() {
           lease ? (
             <>
               <Link
+                href={`/docs/lease/${lease.public_doc_id || lease.id}?export=print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary w-full"
+              >
+                Print lease extract
+              </Link>
+              <Link
                 href={`/dashboard/leases/${id}/edit`}
                 className="btn-primary w-full"
               >

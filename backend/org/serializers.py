@@ -30,6 +30,7 @@ class OrgSerializer(serializers.ModelSerializer):
             'region',
             'postal_code',
             'country_code',
+            'sms_notifications_enabled',
             'settings',
             'created_at',
             'updated_at',

@@ -28,6 +28,7 @@ class Org(models.Model):
     region = models.CharField(max_length=128, blank=True)
     postal_code = models.CharField(max_length=32, blank=True)
     country_code = models.CharField(max_length=2, blank=True)
+    sms_notifications_enabled = models.BooleanField(default=True)
     settings = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

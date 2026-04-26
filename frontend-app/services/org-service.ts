@@ -37,6 +37,7 @@ export type OrgUpdatePayload = Partial<
     | "region"
     | "postal_code"
     | "country_code"
+    | "sms_notifications_enabled"
   >
 >;
 

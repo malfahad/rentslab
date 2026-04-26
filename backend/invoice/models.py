@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+
+from django.conf import settings
 from django.db import models
 
 
@@ -46,3 +50,31 @@ class Invoice(models.Model):
                 name='uniq_invoice_number_per_org',
             ),
         ]
+
+    @staticmethod
+    def _public_doc_signature(raw_id: int) -> str:
+        digest = hmac.new(
+            key=settings.SECRET_KEY.encode('utf-8'),
+            msg=f'invoice-doc:{raw_id}'.encode('utf-8'),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        return digest[:16]
+
+    @classmethod
+    def encode_public_doc_id(cls, invoice_id: int) -> str:
+        base_id = format(invoice_id, 'x')
+        return f'{base_id}{cls._public_doc_signature(invoice_id)}'
+
+    @classmethod
+    def decode_public_doc_id(cls, hashed_doc_id: str) -> int | None:
+        token = (hashed_doc_id or '').strip().lower()
+        if len(token) <= 16:
+            return None
+        base_id, sig = token[:-16], token[-16:]
+        try:
+            raw_id = int(base_id, 16)
+        except ValueError:
+            return None
+        if not hmac.compare_digest(sig, cls._public_doc_signature(raw_id)):
+            return None
+        return raw_id

@@ -12,11 +12,16 @@ from .models import Payment
 
 class PaymentSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+    public_receipt_id = serializers.SerializerMethodField()
+
+    def get_public_receipt_id(self, obj: Payment) -> str:
+        return Payment.encode_public_receipt_id(obj.pk)
 
     class Meta:
         model = Payment
         fields = [
             'id',
+            'public_receipt_id',
             'org',
             'tenant',
             'tenant_name',
@@ -50,16 +55,21 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
     org = serializers.IntegerField(source='org_id', read_only=True)
     tenant_name = serializers.CharField(source='tenant.name', read_only=True)
+    public_receipt_id = serializers.SerializerMethodField(read_only=True)
     allocations = PaymentAllocationInputSerializer(
         many=True,
         required=False,
         write_only=True,
     )
 
+    def get_public_receipt_id(self, obj: Payment) -> str:
+        return Payment.encode_public_receipt_id(obj.pk)
+
     class Meta:
         model = Payment
         fields = [
             'id',
+            'public_receipt_id',
             'org',
             'tenant',
             'tenant_name',
