@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { clearSession } from "@/lib/auth-storage";
 
-export function OrgMissingBanner() {
+export default function LogoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/logout");
+    clearSession();
+    router.replace("/login");
   }, [router]);
 
   return null;
